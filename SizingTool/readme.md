@@ -5,7 +5,7 @@
 ### 1. Download [MDI SizingTool](https://github.com/microsoft/Microsoft-Defender-for-Identity-Sizing-Tool)
 ### 2. Create powershell script under the same path where you saved the MDI sizing tool, name it script1.ps1
 ### 3. Create powershell script under the same path where you saved the MDI sizing tool, name it script2.ps1
-### 4. Edit script1.ps1
+### 4. Edit script1.ps1 (pay attention that domain admin credentials are required to be saved)
 ```powershell
 $username = "domain\domain admin username"  # Eneter domain admin account
 $password = "domain admin password"        # Eneter domain admin password
