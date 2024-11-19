@@ -1,4 +1,4 @@
-# MDI SizingTool 
+![image](https://github.com/user-attachments/assets/6930160e-bf49-4e16-bfd8-b68492cce3c5)# MDI SizingTool 
 
 ## Run MDI SizingTool in scheduled task
 
@@ -91,6 +91,15 @@ if (-not $process.HasExited) {
 @echo off
 start "" /b powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\path\to\script1.ps1"
 ```
+
+The workflow via scheduled task would be:
+* 1. Launch bat file using system account
+* 2. Bat file calls script 1 with domain account credentials saved
+* 3. script 1 calls script 2 to trigger sizing tool
+
+![image](https://github.com/user-attachments/assets/0dc94dbd-9a57-44dd-b963-c2f64c74e45a)
+
+![image](https://github.com/user-attachments/assets/396ae32d-b405-43b3-9bdb-2ea305d26150)
 
 
 
