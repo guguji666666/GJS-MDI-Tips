@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/6930160e-bf49-4e16-bfd8-b68492cce3c5)# MDI SizingTool 
+# MDI SizingTool 
 
 ## Run MDI SizingTool in scheduled task
 
@@ -86,7 +86,7 @@ if (-not $process.HasExited) {
 }
 ```
 
-···powershell
+```powershell
 # Load the Windows Forms assembly for sending key events
 Add-Type -AssemblyName System.Windows.Forms
 
