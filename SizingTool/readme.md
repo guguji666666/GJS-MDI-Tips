@@ -28,65 +28,6 @@ if ($LASTEXITCODE -ne 0) {
 
 ### 5. Edit script2.ps1
 ```powershell
-Add-Type -AssemblyName System.Windows.Forms
-
-# Function to start a process hidden
-function Start-ProcessHidden {
-    param (
-        [string]$exePath
-    )
-    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $exePath
-    $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $startInfo.UseShellExecute = $false
-    $process = [System.Diagnostics.Process]::Start($startInfo)
-    return $process
-}
-
-# Start the executable as a hidden process
-$process = Start-ProcessHidden -exePath "C:\path\to\TriSizingTool.exe"
-
-Start-Sleep -Seconds 2 # Adjust this if needed for your application
-
-# Function to send Enter key periodically and Ctrl+C after 4 minutes
-function Send-KeysRepeatedly {
-    param (
-        [int]$intervalInSeconds = 2, # Define interval between sending Enter
-        [int]$maxDurationInMinutes = 15, # Maximum duration to run the script in minutes, for test purpose i set 15 minutes
-        [int]$ctrlCDurationInMinutes = 14 # Duration after which to send Ctrl+C, for test purpose i configured sizing tool to stop automatically after 14 minutes
-    )
-
-    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    while (-not $process.HasExited) {
-        if ($stopwatch.Elapsed.TotalMinutes -ge $maxDurationInMinutes) {
-            Write-Output "Maximum duration reached. Stopping the process and exiting the script."
-            $process.Kill()
-            break
-        }
-        if ($stopwatch.Elapsed.TotalMinutes -ge $ctrlCDurationInMinutes) {
-            Write-Output "Sending Ctrl+C to the process."
-            [System.Windows.Forms.SendKeys]::SendWait("^c")
-            break
-        } else {
-            Write-Output "Sending Enter to the process."
-            [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-        }
-        
-        Start-Sleep -Seconds $intervalInSeconds
-    }
-    $stopwatch.Stop()
-}
-
-# Call function function to send Enter key repeatedly then Ctrl+C after 4 minutes
-Send-KeysRepeatedly -intervalInSeconds 2 -maxDurationInMinutes 14 -ctrlCDurationInMinutes 4
-
-# Wait for the process to complete (in case it's still running)
-if (-not $process.HasExited) {
-    $process.WaitForExit()
-}
-```
-
-```powershell
 # Load the Windows Forms assembly for sending key events
 Add-Type -AssemblyName System.Windows.Forms
 
@@ -116,7 +57,7 @@ Start-Sleep -Seconds 2 # Adjust this based on the time your application needs to
 # Set parameters in advance for send keys function
 $intervalInSeconds = 2 # Interval in seconds between sending Enter key presses
 $maxDurationInMinutes = 14 # Maximum duration to run the script in minutes (for testing, set to 14 minutes)
-$ctrlCDurationInMinutes = 4 # Duration in minutes after which to send Ctrl+C to stop the process (for testing, set to 4 minutes)
+$ctrlCDurationInMinutes = 10 # Duration in minutes after which to send Ctrl+C to stop the process (for testing, set to 4 minutes)
 
 # Function to send the Enter key periodically and Ctrl+C after a specified time
 function Send-KeysRepeatedly {
