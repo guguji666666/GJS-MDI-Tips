@@ -2,6 +2,10 @@
 
 ## C code
 ### 1. User context get access token
+
+Turn on the switch here <br>
+![image](https://github.com/user-attachments/assets/c9b5a32d-3680-4ce5-8b18-039c3e60d187)
+
 ```cs
 using System;
 using System.Net.Http;
