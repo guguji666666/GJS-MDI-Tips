@@ -1,6 +1,43 @@
 # MDI SizingTool 
 
-## Run MDI SizingTool in scheduled task
+## 1.Run MDI SizingTool interactively with no interruption
+```powershell
+# Load the Windows Forms assembly
+Add-Type -AssemblyName System.Windows.Forms
+
+# Start the sizing tool process
+$process = Start-Process -FilePath "C:\path\to\TriSizingTool_1.3.0.0\TriSizingTool.exe" -PassThru
+
+# Focus the process window so it receives keyboard input
+Start-Sleep -Seconds 5 # Wait for the process to start
+$hwnd = $process.MainWindowHandle
+
+# Check if the window handle is valid
+if ($hwnd -ne [IntPtr]::Zero) {
+    # Set the focus on the window
+    [System.Windows.Forms.NativeMethods]::SetForegroundWindow($hwnd)
+}
+
+# Loop to send Enter every 10 seconds until the process exits
+while (!$process.HasExited) {
+    # Send Enter key
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    
+    # Print to terminal
+    Write-Host "Sent Enter successfully to the pop-up window."
+
+    Start-Sleep -Seconds 10
+}
+
+# Optional: Wait for the process to exit before closing the script
+$process.WaitForExit()
+```
+
+![image](https://github.com/user-attachments/assets/200b3ff2-800a-4f8f-a227-83098698d34a)
+
+
+
+## 2.Run MDI SizingTool in scheduled task
 
 ### 1. Download [MDI SizingTool](https://github.com/microsoft/Microsoft-Defender-for-Identity-Sizing-Tool)
 ### 2. Create powershell script under the same path where you saved the MDI sizing tool, name it script1.ps1
