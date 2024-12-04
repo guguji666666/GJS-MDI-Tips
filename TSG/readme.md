@@ -1,6 +1,29 @@
 # MDI TSG logs
 
-## Capture tracing logs
+## 1.Netlogon logs
+By enabling Netlogon we will capture all the auth attempts; including the MDI Sensors authenticating with the GMSA account.
+
+### 1.Launch powershell as `administator` 
+
+### 2.Start logging
+```powershell
+Nltest /DBFlag:2080FFFF
+
+net stop netlogon
+
+net start netlogon
+```
+
+### 2.Restart MDI sensor service
+### 3.Stop logging
+```powershell
+nltest /dbflag:0x0
+```
+### 4.Once Netlogon is running with the new flag set it will write the log file to `%windir%\debug\netlogon.log`
+
+
+
+## 2.Capture tracing logs
 ### 1. Run bat 1 file below as administrator
 ```bat
 @echo off
