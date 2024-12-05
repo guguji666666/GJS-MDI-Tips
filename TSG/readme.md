@@ -107,4 +107,22 @@ netsh trace stop
 echo All commands executed successfully!
 pause
 ```
-The logs will be generated under C:\temp,
+The logs will be generated under C:\temp
+
+## 3.Check if gmsa is in a deny group
+```powershell
+$denyGroups = @(
+    "Deny log on locally",
+    "Deny log on as a batch job",
+    "Deny access to this computer from the network"
+)
+
+foreach ($group in $denyGroups) {
+    $denyGroupMembers = Get-ADGroupMember -Identity $group
+    if ($denyGroupMembers | Where-Object { $_.SamAccountName -eq $gMSAAccount }) {
+        Write-Host "$gMSAAccount is a member of $group"
+    } else {
+        Write-Host "$gMSAAccount is NOT a member of $group"
+    }
+}
+```
