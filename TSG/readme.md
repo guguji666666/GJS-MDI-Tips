@@ -111,18 +111,30 @@ The logs will be generated under C:\temp
 
 ## 3.Check if gmsa is in a deny group
 ```powershell
+# Define the gMSA account to check
+$gMSAAccount = "YourgMSA$"  # Replace with your gMSA account name
+
+# List of deny groups to check
 $denyGroups = @(
     "Deny log on locally",
     "Deny log on as a batch job",
     "Deny access to this computer from the network"
 )
 
+# Loop through each deny group and check membership
 foreach ($group in $denyGroups) {
-    $denyGroupMembers = Get-ADGroupMember -Identity $group
-    if ($denyGroupMembers | Where-Object { $_.SamAccountName -eq $gMSAAccount }) {
-        Write-Host "$gMSAAccount is a member of $group"
-    } else {
-        Write-Host "$gMSAAccount is NOT a member of $group"
-    }
+    try {
+        # Get the members of the deny group
+        $denyGroupMembers = Get-ADGroupMember -Identity $group -ErrorAction Stop
+
+        # Check if the gMSA is in the deny group
+        if ($denyGroupMembers | Where-Object { $_.SamAccountName -eq $gMSAAccount }) {
+            Write-Host "$gMSAAccount is a member of $group" -ForegroundColor Red
+        } else {
+            Write-Host "$gMSAAccount is NOT a member of $group" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "Failed to retrieve members from group '$group': $_" -ForegroundColor Yellow
+    }   
 }
 ```
