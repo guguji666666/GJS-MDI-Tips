@@ -3,7 +3,7 @@
 ## 1. Verify principals allowed to retrieve the GMSA password 
 ```powershell
 # Retrieve the principals allowed to retrieve the managed password
-$principals = Get-ADServiceAccount -Identity "gjsmdigmsa$" -Properties PrincipalsAllowedToRetrieveManagedPassword | 
+$principals = Get-ADServiceAccount -Identity "<GMSA name with $ at end>" -Properties PrincipalsAllowedToRetrieveManagedPassword | 
               Select-Object -ExpandProperty PrincipalsAllowedToRetrieveManagedPassword
 
 # Iterate over each principal to determine if it is a security group
