@@ -47,7 +47,25 @@ foreach ($group in $groups) {
 ```
 ![image](https://github.com/user-attachments/assets/af57ffe7-7370-4ad0-83e1-e0d94e0705db)
 
-## 3.Verify Pcap, Npcap version installed on the machine
+## 3. GMSA last password change date
+```powershell
+# Replace 'YourServiceAccountName' with the name of your gMSA
+$serviceAccountName = "<GMSA name with $ at end>"
+
+# Get the AD service account object
+$gmsa = Get-ADServiceAccount -Identity $serviceAccountName -Properties * 
+
+# Get the pwdLastSet attribute which holds the last password change date
+$pwdLastSet = $gmsa.pwdLastSet
+
+# Convert the pwdLastSet attribute to a datetime object to make it human-readable
+$lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
+
+# Output the last password change date
+"Last password change date for ${serviceAccountName}: $lastPasswordChangeDate"
+```
+
+## 4.Verify Pcap, Npcap version installed on the machine
 
 ### Npcap version
 
