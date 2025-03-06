@@ -25,9 +25,29 @@ foreach ($principal in $principals) {
     }
 }
 ```
+![image](https://github.com/user-attachments/assets/01afa547-16f0-40f3-9a6d-4dd9f02fcc68)
 
+## 2. Verify group membership of computer
+```powershell
+# Query the group membership of the machine
+$computerName = "<Input computer hostname>"
+$computer = Get-ADComputer -Identity $computerName
 
-## 2.Verify Pcap, Npcap version installed on the machine
+# Get the group membership and their respective OU location
+$groups = Get-ADPrincipalGroupMembership -Identity $computer
+
+# Output the group name and its location
+foreach ($group in $groups) {
+    $ou = ($group.DistinguishedName -split ",", 2)[1]  # Get the OU part of the Distinguished Name
+    [PSCustomObject]@{
+        GroupName = $group.Name
+        Location  = $ou
+    }
+}
+```
+![image](https://github.com/user-attachments/assets/af57ffe7-7370-4ad0-83e1-e0d94e0705db)
+
+## 3.Verify Pcap, Npcap version installed on the machine
 
 ### Npcap version
 
