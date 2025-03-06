@@ -1,5 +1,35 @@
 # Configure MDI DSA
 
+## Create GMSA, security groups that contains computer objects
+```powershell
+# Set the name for the AD group that will host the members
+$gMSA_HostsGroupName = '<name your security group>'
+
+# Create a new global-scope Active Directory group and return the group object
+$gMSA_HostsGroup = New-ADGroup -Name $gMSA_HostsGroupName -GroupScope Global -PassThru
+
+# List of hostnames for devices that need to be added to the group (expand as needed)
+# Input your computer hostnames below
+$gMSA_HostNames = @('TestVM2019-01', 'SensorMachine-02', 'HostDevice-03')
+
+# Loop through each hostname in the list, retrieve the AD computer object, and add it to the group
+$gMSA_HostNames | ForEach-Object {
+    $computer = Get-ADComputer -Identity $_  # Retrieve the Active Directory computer object for each host
+    Add-ADGroupMember -Identity $gMSA_HostsGroupName -Members $computer # Add the computer to the group
+}
+
+# Define the name for the Group Managed Service Account (gMSA)
+$gMSA_AccountName = '<name your GMSA'
+
+# Create a new Group Managed Service Account with a specified DNS hostname
+# Allow the previously created group to retrieve the gMSA password
+New-ADServiceAccount -Name $gMSA_AccountName `
+                     -DNSHostName "$gMSA_AccountName.$env:USERDNSDOMAIN" `
+                     -PrincipalsAllowedToRetrieveManagedPassword $gMSA_HostsGroupName
+```
+
+
+
 ## GMSA
 ```powershell
 # Declare the identity (e.g., service account, user, or group) that you want to grant read access to the Deleted Objects container:
