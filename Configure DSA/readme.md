@@ -19,7 +19,7 @@ $gMSA_HostNames | ForEach-Object {
 }
 
 # Define the name for the Group Managed Service Account (gMSA)
-$gMSA_AccountName = '<name your GMSA'
+$gMSA_AccountName = '<name your GMSA>'
 
 # Create a new Group Managed Service Account with a specified DNS hostname
 # Allow the previously created group to retrieve the gMSA password
