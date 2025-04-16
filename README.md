@@ -82,7 +82,7 @@ $lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
 
 ## 5. Network configuration mismatch for sensors running on VMware
 ### Disabling the Large Send Offload (LSO)
-### list network adapters with LSO properties detected
+### a. list network adapters with LSO properties detected
 ```powershell
 # Load the Active Directory module. This requires RSAT (Remote Server Administration Tools) to be installed if running from a workstation.
 Import-Module ActiveDirectory
@@ -129,7 +129,7 @@ Sample output <br>
 ![image](https://github.com/user-attachments/assets/903c9327-1be9-499e-bd4c-da27bdec50bf)
 
 
-Once validated, you can run the following script to disable LSO on specific servers <br>
+### b. Then disable LSO on specific servers <br>
 ```powershell
 # Manually specify the hostnames of the servers you want to process
 $Servers = @(
