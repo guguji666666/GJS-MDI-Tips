@@ -20,7 +20,6 @@
 Rename-Item -Path 'DefenderForIdentity.1.0.0.3.nupkg' -NewName 'DefenderForIdentity.zip'
 Expand-Archive -Path 'DefenderForIdentity.zip' -DestinationPath 'C:\Temp\DefenderForIdentity'
 ```
-
 ---
 
 ### ✅ 步骤三：找到模块文件所在目录
@@ -35,6 +34,7 @@ C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3\
 - `DefenderForIdentity.psd1`
 
 ---
+![image](https://github.com/user-attachments/assets/0c9b796d-5dbb-4be9-93ad-ffaeb66504b6)
 
 ### ✅ 步骤四：复制到 PowerShell 模块路径
 
