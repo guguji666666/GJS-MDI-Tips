@@ -1,4 +1,77 @@
 # GJS-MDI-Tips
+## Defender for identity powershell module
+
+### ✅ 步骤一：手动下载 `.nupkg` 文件
+
+1. 打开 [DefenderForIdentity 模块页面](https://www.powershellgallery.com/packages/DefenderForIdentity/1.0.0.3)
+2. 点击右上角的 **“手动下载（Manual Download）”**
+3. 或者直接打开下载链接：  
+   [https://www.powershellgallery.com/api/v2/package/DefenderForIdentity/1.0.0.3](https://www.powershellgallery.com/api/v2/package/DefenderForIdentity/1.0.0.3)
+4. 保存文件为：  
+   `DefenderForIdentity.1.0.0.3.nupkg`
+
+---
+
+### ✅ 步骤二：重命名并解压 `.nupkg` 文件
+
+在 PowerShell 中运行以下命令：
+
+```powershell
+Rename-Item -Path 'DefenderForIdentity.1.0.0.3.nupkg' -NewName 'DefenderForIdentity.zip'
+Expand-Archive -Path 'DefenderForIdentity.zip' -DestinationPath 'C:\Temp\DefenderForIdentity'
+```
+
+---
+
+### ✅ 步骤三：找到模块文件所在目录
+
+进入解压后的目录：
+```
+C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3\
+```
+
+确认该目录中包含：
+- `DefenderForIdentity.psm1`
+- `DefenderForIdentity.psd1`
+
+---
+
+### ✅ 步骤四：复制到 PowerShell 模块路径
+
+#### 👉 当前用户（不需要管理员权限）：
+
+```powershell
+$dest = "$env:USERPROFILE\Documents\PowerShell\Modules\DefenderForIdentity"
+Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
+```
+
+#### 👉 所有用户（需要管理员权限）：
+
+```powershell
+$dest = "$env:ProgramFiles\PowerShell\Modules\DefenderForIdentity"
+Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
+```
+
+---
+
+### ✅ 步骤五：导入并验证模块
+
+导入模块：
+
+```powershell
+Import-Module DefenderForIdentity
+```
+
+验证是否安装成功：
+
+```powershell
+Get-Module -ListAvailable DefenderForIdentity
+```
+
+---
+
+如你需要，我也可以帮你写一个一键安装脚本（不包含下载），用于在已经有 `.nupkg` 文件的情况下自动完成以上步骤。是否需要？
+
 
 ## 1. Verify principals allowed to retrieve the GMSA password 
 ```powershell
