@@ -41,22 +41,21 @@ C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3\
 ![image](https://github.com/user-attachments/assets/d7547c19-db4a-4d9d-a3a5-abe2334cd8ca)
 
 ---
-![image](https://github.com/user-attachments/assets/0c9b796d-5dbb-4be9-93ad-ffaeb66504b6)
 
 ### ✅ 步骤四：复制到 PowerShell 模块路径
 
 #### 👉 当前用户（不需要管理员权限）：
 
 ```powershell
-$dest = "$env:USERPROFILE\Documents\PowerShell\Modules\DefenderForIdentity"
+$dest = "$env:USERPROFILE\Documents\WindowsPowerShell\Modules\DefenderForIdentity"
 Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
 ```
 
 #### 👉 所有用户（需要管理员权限）：
 
 ```powershell
-$dest = "$env:ProgramFiles\PowerShell\Modules\DefenderForIdentity"
-Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
+$dest = "$env:ProgramFiles\WindowsPowerShell\Modules\DefenderForIdentity"
+Copy-Item -Path 'C:\Temp\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
 ```
 
 ---
