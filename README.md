@@ -57,6 +57,7 @@ Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Desti
 $dest = "$env:ProgramFiles\WindowsPowerShell\Modules\DefenderForIdentity\1.0.0.3"
 Copy-Item -Path 'C:\Temp\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse -Force
 ```
+![image](https://github.com/user-attachments/assets/9e69e599-9f62-4fee-b599-c2f2dc8f371e)
 
 ---
 
@@ -75,8 +76,6 @@ Get-Module -ListAvailable DefenderForIdentity
 ```
 
 ---
-
-如你需要，我也可以帮你写一个一键安装脚本（不包含下载），用于在已经有 `.nupkg` 文件的情况下自动完成以上步骤。是否需要？
 
 
 ## 1. Verify principals allowed to retrieve the GMSA password 
