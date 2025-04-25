@@ -29,9 +29,16 @@ Expand-Archive -Path 'DefenderForIdentity.zip' -DestinationPath 'C:\Temp\Defende
 C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3\
 ```
 
-确认该目录中包含：
+新建文件夹 `1.0.0.3`
+
+把当前目录下所有文件，移入文件夹`1.0.0.3`中
+![image](https://github.com/user-attachments/assets/f792a5ed-7ee4-4d9b-ae4e-2e13ca8386b0)
+
+
+确认该目录`\Temp\DefenderForIdentity\1.0.0.3`中包含：
 - `DefenderForIdentity.psm1`
 - `DefenderForIdentity.psd1`
+![image](https://github.com/user-attachments/assets/d7547c19-db4a-4d9d-a3a5-abe2334cd8ca)
 
 ---
 ![image](https://github.com/user-attachments/assets/0c9b796d-5dbb-4be9-93ad-ffaeb66504b6)
