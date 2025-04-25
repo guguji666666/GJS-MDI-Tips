@@ -1,7 +1,7 @@
 # GJS-MDI-Tips
 ## Defender for identity powershell module
 
-### ✅ 步骤一：手动下载 `.nupkg` 文件
+### ✅ 步骤一：手动下载 `.nupkg` 文件至`C:\Temp\`中
 
 1. 打开 [DefenderForIdentity 模块页面](https://www.powershellgallery.com/packages/DefenderForIdentity/1.0.0.3)
 2. 点击右上角的 **“手动下载（Manual Download）”**
