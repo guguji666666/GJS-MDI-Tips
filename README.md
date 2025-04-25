@@ -54,8 +54,8 @@ Copy-Item -Path 'C:\Temp\DefenderForIdentity\DefenderForIdentity\1.0.0.3' -Desti
 #### 👉 所有用户（需要管理员权限）：
 
 ```powershell
-$dest = "$env:ProgramFiles\WindowsPowerShell\Modules\DefenderForIdentity"
-Copy-Item -Path 'C:\Temp\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse
+$dest = "$env:ProgramFiles\WindowsPowerShell\Modules\DefenderForIdentity\1.0.0.3"
+Copy-Item -Path 'C:\Temp\DefenderForIdentity\1.0.0.3' -Destination $dest -Recurse -Force
 ```
 
 ---
