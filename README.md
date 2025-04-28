@@ -76,8 +76,9 @@ Get-Module -ListAvailable DefenderForIdentity
 
 ---
 
+## Useful powershell scripts
 
-## 1. Verify principals allowed to retrieve the GMSA password 
+### 1. Verify principals allowed to retrieve the GMSA password 
 ```powershell
 # Retrieve the principals allowed to retrieve the managed password
 $principals = Get-ADServiceAccount -Identity "<GMSA name with $ at end>" -Properties PrincipalsAllowedToRetrieveManagedPassword | 
@@ -104,7 +105,7 @@ foreach ($principal in $principals) {
 ```
 ![image](https://github.com/user-attachments/assets/01afa547-16f0-40f3-9a6d-4dd9f02fcc68)
 
-## 2. Verify group membership of computer
+### 2. Verify group membership of computer
 ```powershell
 # Query the group membership of the machine
 $computerName = "<Input computer hostname>"
@@ -124,7 +125,7 @@ foreach ($group in $groups) {
 ```
 ![image](https://github.com/user-attachments/assets/af57ffe7-7370-4ad0-83e1-e0d94e0705db)
 
-## 3. GMSA last password change date
+### 3. GMSA last password change date
 ```powershell
 # Replace 'YourServiceAccountName' with the name of your gMSA
 $serviceAccountName = "<GMSA name with $ at end>"
@@ -142,7 +143,7 @@ $lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
 "Last password change date for ${serviceAccountName}: $lastPasswordChangeDate"
 ```
 
-### Or we can use script below
+#### Or we can use script below
 English version
 ```powershell
 # Set the computer name
@@ -240,7 +241,7 @@ Write-Host "账户 ${gmsaAccountName} 上一次密码更改时间: $lastPassword
 ```
 
 
-## 4. Test network connectivity to the domain controller
+### 4. Test network connectivity to the domain controller
 English version
 ```powershell
 # Test network connectivity to the domain controller
@@ -317,9 +318,9 @@ if ($connectionSummary.Status -contains "Fail") {
 }
 ```
 
-## 5.Verify Pcap, Npcap version installed on the machine
+### 5.Verify Pcap, Npcap version installed on the machine
 
-### Npcap version
+Npcap version
 
 ```powershell
 (Get-ItemProperty "C:\Windows\System32\Npcap\Packet.dll").VersionInfo
@@ -332,9 +333,9 @@ if ($connectionSummary.Status -contains "Fail") {
 ![image](https://github.com/user-attachments/assets/0d98b3b5-fa50-400c-8e89-95d53ee5968d)
 
 
-## 6. Network configuration mismatch for sensors running on VMware
-### Disabling the Large Send Offload (LSO)
-### a. list network adapters with LSO properties detected
+### 6. Network configuration mismatch for sensors running on VMware
+#### Disabling the Large Send Offload (LSO)
+a. list network adapters with LSO properties detected
 ```powershell
 # Load the Active Directory module. This requires RSAT (Remote Server Administration Tools) to be installed if running from a workstation.
 Import-Module ActiveDirectory
@@ -381,7 +382,7 @@ Sample output <br>
 ![image](https://github.com/user-attachments/assets/903c9327-1be9-499e-bd4c-da27bdec50bf)
 
 
-### b. Then disable LSO on specific servers <br>
+b. Then disable LSO on specific servers <br>
 ```powershell
 # Manually specify the hostnames of the servers you want to process
 $Servers = @(
