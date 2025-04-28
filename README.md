@@ -143,6 +143,104 @@ $lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
 "Last password change date for ${serviceAccountName}: $lastPasswordChangeDate"
 ```
 
+### Or we can use script below
+English version
+```powershell
+# Set the computer name (corresponding to IP 10.93.64.108)
+$computerName = "<Hostname corresponding to IP 10.93.64.108>"
+
+# Set the gMSA account name (make sure to include the trailing $)
+$gmsaAccountName = "mdiSvc01$"
+
+# Retrieve the computer object
+$computer = Get-ADComputer -Identity $computerName
+
+# Retrieve the list of groups the computer belongs to (Distinguished Names)
+$computerGroups = Get-ADPrincipalGroupMembership -Identity $computer | Select-Object -ExpandProperty DistinguishedName
+
+# Retrieve the gMSA account object with all properties
+$gmsa = Get-ADServiceAccount -Identity $gmsaAccountName -Properties *
+
+# Retrieve the list of principals allowed to retrieve the gMSA password
+$allowedPrincipals = $gmsa.PrincipalsAllowedToRetrieveManagedPassword
+
+# Retrieve the last password change time for the gMSA
+$pwdLastSet = $gmsa.pwdLastSet
+$lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
+
+# Output the groups the computer belongs to
+Write-Host "`n=== Computer Group Memberships ==="
+$computerGroups
+
+# Output the principals allowed to retrieve the gMSA password
+Write-Host "`n=== gMSA Principals Allowed to Retrieve Password ==="
+$allowedPrincipals
+
+# Check if the computer has permission to retrieve the gMSA password
+Write-Host "`n=== Permission Check Result ==="
+$hasDirectPermission = $allowedPrincipals -contains $computer.DistinguishedName
+$hasGroupPermission = ($computerGroups | Where-Object { $allowedPrincipals -contains $_ }).Count -gt 0
+
+if ($hasDirectPermission -or $hasGroupPermission) {
+    Write-Host "✅ Computer '$computerName' has permission to retrieve the password for gMSA '$gmsaAccountName'." -ForegroundColor Green
+} else {
+    Write-Host "❌ Computer '$computerName' does NOT have permission to retrieve the password for gMSA '$gmsaAccountName'." -ForegroundColor Red
+}
+
+# Output the last password change date for the gMSA
+Write-Host "`n=== gMSA Last Password Change Date ==="
+Write-Host "Last password change date for ${gmsaAccountName}: $lastPasswordChangeDate"
+```
+
+Chinese version
+```powershell
+# 设置要检查的计算机名称（即IP 10.93.64.108对应的主机名）
+$computerName = "<IP 10.93.64.108对应的主机名>"
+
+# 设置要检查的gMSA账户名（注意带$）
+$gmsaAccountName = "mdiSvc01$"
+
+# 获取计算机对象
+$computer = Get-ADComputer -Identity $computerName
+
+# 获取计算机所属的组列表（返回完整的DN）
+$computerGroups = Get-ADPrincipalGroupMembership -Identity $computer | Select-Object -ExpandProperty DistinguishedName
+
+# 获取gMSA账户对象，拉取完整属性
+$gmsa = Get-ADServiceAccount -Identity $gmsaAccountName -Properties *
+
+# 获取被授权可以检索gMSA密码的主体列表（直接拿，不要Expand）
+$allowedPrincipals = $gmsa.PrincipalsAllowedToRetrieveManagedPassword
+
+# 获取gMSA密码上一次更改时间
+$pwdLastSet = $gmsa.pwdLastSet
+$lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
+
+# 打印计算机所属组
+Write-Host "`n=== 计算机所属组列表 ==="
+$computerGroups
+
+# 打印gMSA允许访问的主体
+Write-Host "`n=== gMSA账户允许访问的主体列表 ==="
+$allowedPrincipals
+
+# 检查计算机是否有权限访问gMSA密码
+Write-Host "`n=== 检查结果 ==="
+$hasDirectPermission = $allowedPrincipals -contains $computer.DistinguishedName
+$hasGroupPermission = ($computerGroups | Where-Object { $allowedPrincipals -contains $_ }).Count -gt 0
+
+if ($hasDirectPermission -or $hasGroupPermission) {
+    Write-Host "✅ 机器 '$computerName' 有权限读取 gMSA '$gmsaAccountName' 的密码。" -ForegroundColor Green
+} else {
+    Write-Host "❌ 机器 '$computerName' 没有权限读取 gMSA '$gmsaAccountName' 的密码。" -ForegroundColor Red
+}
+
+# 输出gMSA账户上一次密码修改时间
+Write-Host "`n=== gMSA账户上一次密码更改时间 ==="
+Write-Host "账户 ${gmsaAccountName} 上一次密码更改时间: $lastPasswordChangeDate"
+```
+
+
 ## 4.Verify Pcap, Npcap version installed on the machine
 
 ### Npcap version
