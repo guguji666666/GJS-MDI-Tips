@@ -143,7 +143,7 @@ $lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
 "Last password change date for ${serviceAccountName}: $lastPasswordChangeDate"
 ```
 
-#### Or we can use script below
+### Or we can use script below
 English version
 ```powershell
 # Set the computer name
