@@ -241,7 +241,84 @@ Write-Host "账户 ${gmsaAccountName} 上一次密码更改时间: $lastPassword
 ```
 
 
-## 4.Verify Pcap, Npcap version installed on the machine
+## 4. Test network connectivity to the domain controller
+English version
+```powershell
+# Test network connectivity to the domain controller
+$domainController = "ECNVADPABR001.envisioncn.com"
+$portsToTest = @(389, 636, 88, 53)
+
+Write-Host "`n=== Testing Network Connectivity to Domain Controller ==="
+$connectionSummary = @()
+
+foreach ($port in $portsToTest) {
+    Write-Host "`nTesting port $port ..." -ForegroundColor Cyan
+    $testResult = Test-NetConnection -ComputerName $domainController -Port $port
+
+    if ($testResult.TcpTestSucceeded) {
+        Write-Host "✅ Port $port is reachable." -ForegroundColor Green
+        $connectionSummary += [PSCustomObject]@{
+            Port = $port
+            Status = "Pass"
+        }
+    } else {
+        Write-Host "❌ Port $port is not reachable." -ForegroundColor Red
+        $connectionSummary += [PSCustomObject]@{
+            Port = $port
+            Status = "Fail"
+        }
+    }
+}
+
+Write-Host "`n=== Test Summary ===" -ForegroundColor Yellow
+$connectionSummary | Format-Table -AutoSize
+
+if ($connectionSummary.Status -contains "Fail") {
+    Write-Host "`nSummary: Some critical ports are unreachable. Please check network connectivity or firewall policies." -ForegroundColor Red
+} else {
+    Write-Host "`nSummary: All critical ports are reachable. Communication with the domain controller is normal." -ForegroundColor Green
+}
+```
+
+Chinese version
+```powershell
+# 测试与域控制器的网络连通性
+$domainController = "ECNVADPABR001.envisioncn.com"
+$portsToTest = @(389, 636, 88, 53)
+
+Write-Host "`n=== 测试与域控制器的网络连通性 ==="
+$connectionSummary = @()
+
+foreach ($port in $portsToTest) {
+    Write-Host "`n正在测试端口 $port ..." -ForegroundColor Cyan
+    $testResult = Test-NetConnection -ComputerName $domainController -Port $port
+
+    if ($testResult.TcpTestSucceeded) {
+        Write-Host "✅ 端口 $port 可访问。" -ForegroundColor Green
+        $connectionSummary += [PSCustomObject]@{
+            Port = $port
+            Status = "Pass"
+        }
+    } else {
+        Write-Host "❌ 端口 $port 无法访问。" -ForegroundColor Red
+        $connectionSummary += [PSCustomObject]@{
+            Port = $port
+            Status = "Fail"
+        }
+    }
+}
+
+Write-Host "`n=== 测试总结 ===" -ForegroundColor Yellow
+$connectionSummary | Format-Table -AutoSize
+
+if ($connectionSummary.Status -contains "Fail") {
+    Write-Host "`n总结：存在无法访问的关键端口，请检查网络连通性或防火墙策略。" -ForegroundColor Red
+} else {
+    Write-Host "`n总结：所有关键端口均可访问，域控制器通信正常。" -ForegroundColor Green
+}
+```
+
+## 5.Verify Pcap, Npcap version installed on the machine
 
 ### Npcap version
 
@@ -256,7 +333,7 @@ Write-Host "账户 ${gmsaAccountName} 上一次密码更改时间: $lastPassword
 ![image](https://github.com/user-attachments/assets/0d98b3b5-fa50-400c-8e89-95d53ee5968d)
 
 
-## 5. Network configuration mismatch for sensors running on VMware
+## 6. Network configuration mismatch for sensors running on VMware
 ### Disabling the Large Send Offload (LSO)
 ### a. list network adapters with LSO properties detected
 ```powershell
