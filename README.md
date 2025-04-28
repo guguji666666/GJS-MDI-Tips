@@ -146,8 +146,8 @@ $lastPasswordChangeDate = [datetime]::FromFileTime($pwdLastSet)
 ### Or we can use script below
 English version
 ```powershell
-# Set the computer name (corresponding to IP 10.93.64.108)
-$computerName = "<Hostname corresponding to IP 10.93.64.108>"
+# Set the computer name
+$computerName = "<Hostname of affected machine>"
 
 # Set the gMSA account name (make sure to include the trailing $)
 $gmsaAccountName = "mdiSvc01$"
@@ -194,8 +194,8 @@ Write-Host "Last password change date for ${gmsaAccountName}: $lastPasswordChang
 
 Chinese version
 ```powershell
-# 设置要检查的计算机名称（即IP 10.93.64.108对应的主机名）
-$computerName = "<IP 10.93.64.108对应的主机名>"
+# 设置要检查的计算机名称
+$computerName = "<主机名>"
 
 # 设置要检查的gMSA账户名（注意带$）
 $gmsaAccountName = "mdiSvc01$"
