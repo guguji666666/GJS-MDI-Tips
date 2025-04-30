@@ -442,3 +442,46 @@ foreach ($server in $Servers) {
 Explanation <br>
 This script disables LSO for network adapters on specified servers. It connects remotely to each server using domain admin credentials, identifies adapters with LSO properties, disables LSO, and verifies the changes.
 
+
+### 7. Test connection to MDI endpoint
+#### 1. Without Proxy (direct test)
+Use Test-NetConnection to directly test:
+```powershell
+Test-NetConnection -ComputerName <MDI workspace name>sensorapi.atp.azure.com -Port 443
+```
+This will output info like:
+
+* TcpTestSucceeded: True or False
+* Latency
+* Remote Address
+* 
+If TcpTestSucceeded = True, direct connection is working.
+
+
+#### 2. With Proxy (proxy_ip:proxy_port)
+```powershell
+# Proxy settings
+$proxyAddress = "http://proxy_ip:proxy_port"
+
+# Target URL
+$url = "https://contoso-corpsensorapi.atp.azure.com:443"
+
+# Create the WebRequest
+$webRequest = [System.Net.WebRequest]::Create($url)
+
+# Set the proxy
+$webProxy = New-Object System.Net.WebProxy($proxyAddress, $true)
+$webRequest.Proxy = $webProxy
+
+# Set timeout (optional)
+$webRequest.Timeout = 5000  # in milliseconds
+
+try {
+    $response = $webRequest.GetResponse()
+    Write-Host "✅ Connection via proxy successful!" -ForegroundColor Green
+    $response.Close()
+} catch {
+    Write-Host "❌ Connection via proxy failed: $($_.Exception.Message)" -ForegroundColor Red
+}
+```
+
