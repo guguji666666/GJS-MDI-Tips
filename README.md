@@ -454,7 +454,7 @@ This will output info like:
 * TcpTestSucceeded: True or False
 * Latency
 * Remote Address
-* 
+ 
 If TcpTestSucceeded = True, direct connection is working.
 
 
