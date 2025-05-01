@@ -485,3 +485,127 @@ try {
 }
 ```
 
+### 8. Get security events from all DC, ADCS, ADFS servers
+
+```powershell
+# ================================
+# CONFIGURATION SECTION
+# ================================
+
+# Define the domain to search in. Replace with your actual domain.
+$domainName = "xxxx"
+
+# Define the destination UNC path where Security.evtx logs will be saved.
+$logDestination = "\\fileserver\logs$"  # Ensure this path is accessible and writable
+
+# Prompt the user for domain admin or delegated credentials
+$cred = Get-Credential -Message "Enter domain admin credentials"
+
+# ================================
+# FUNCTION: Discover DC, ADFS, and ADCS Servers
+# ================================
+
+function Get-ADInfraServers {
+
+    # Query all computer objects in the domain with server operating systems
+    $allServers = Get-ADComputer -Filter * -SearchBase "DC=$($domainName -replace '\.',',DC=')" -Properties Name,OperatingSystem |
+                  Where-Object { $_.OperatingSystem -like "*Server*" } |  # Limit to Windows Server OS
+                  Select-Object -ExpandProperty Name  # Extract only the name
+
+    $infraServers = @()  # Initialize an array to store matching servers
+
+    foreach ($server in $allServers) {
+        try {
+            # Test basic connectivity (ping) before proceeding
+            if (-not (Test-Connection -ComputerName $server -Count 1 -Quiet)) { continue }
+
+            $roles = @()  # List to store roles (DC, ADFS, ADCS)
+
+            # Check if the computer object is under the "Domain Controllers" OU
+            $adObject = Get-ADComputer $server -Properties DistinguishedName
+            if ($adObject.DistinguishedName -like "*OU=Domain Controllers,*") {
+                $roles += "DC"
+            }
+
+            # Use remote PowerShell to check if ADFS service exists
+            $adfs = Invoke-Command -ComputerName $server -Credential $cred -ScriptBlock {
+                Get-Service -Name adfssrv -ErrorAction SilentlyContinue
+            }
+            if ($adfs) { $roles += "ADFS" }
+
+            # Use remote PowerShell to check if ADCS (Certificate Services) is present
+            $adcs = Invoke-Command -ComputerName $server -Credential $cred -ScriptBlock {
+                Get-Service -Name CertSvc -ErrorAction SilentlyContinue
+            }
+            if ($adcs) { $roles += "ADCS" }
+
+            # Only collect information if the server has at least one matching role
+            if ($roles.Count -gt 0) {
+                # Resolve the Fully Qualified Domain Name (FQDN)
+                $fqdn = ([System.Net.Dns]::GetHostByName($server)).HostName
+
+                # Get the first IPv4 address
+                $ip = [System.Net.Dns]::GetHostAddresses($server) |
+                      Where-Object { $_.AddressFamily -eq 'InterNetwork' } |
+                      Select-Object -First 1
+
+                # Store the result in a custom object
+                $infraServers += [PSCustomObject]@{
+                    FQDN     = $fqdn
+                    Hostname = $server
+                    Role     = ($roles -join ", ")  # Join multiple roles if applicable
+                    IP       = $ip.IPAddressToString
+                }
+            }
+
+        } catch {
+            # Catch any error during server check
+            Write-Warning "Failed to check $server: $_"
+        }
+    }
+
+    # Return the final list of infrastructure servers
+    return $infraServers
+}
+
+# ================================
+# STEP 1: Get all infrastructure servers
+# ================================
+
+# Call the function and retrieve servers
+$serverList = Get-ADInfraServers
+
+# Display the server list in a formatted table
+$serverList | Format-Table -AutoSize
+
+# ================================
+# STEP 2: Copy Security.evtx logs from each server
+# ================================
+
+foreach ($server in $serverList) {
+    try {
+        # Create a PowerShell remote session to the target server
+        $session = New-PSSession -ComputerName $server.Hostname -Credential $cred -ErrorAction Stop
+
+        # Define the remote log file path
+        $remotePath = "C:\Windows\System32\winevt\Logs\Security.evtx"
+
+        # Define the local destination file name
+        $localFile = Join-Path $logDestination "$($server.Hostname)-Security.evtx"
+
+        # Copy the Security log from the remote server to the destination share
+        Copy-Item -Path $remotePath -Destination $localFile -FromSession $session -Force
+
+        # Log success message
+        Write-Host "✅ Copied Security log from $($server.Hostname) to $localFile"
+
+        # Clean up the remote session
+        Remove-PSSession $session
+
+    } catch {
+        # Handle errors such as access denied or file not found
+        Write-Warning "❌ Failed to copy from $($server.Hostname): $_"
+    }
+}
+```
+
