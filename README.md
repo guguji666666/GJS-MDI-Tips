@@ -609,3 +609,12 @@ foreach ($server in $serverList) {
 }
 ```
 
+✅ Output Example (From Format-Table)
+
+| FQDN                        | Hostname      | Role          | IP          |
+|----------------------------|---------------|---------------|-------------|
+| adfs01.corp.contoso.com    | ADFS01        | ADFS          | 10.1.1.10   |
+| ca01.corp.contoso.com      | CA01          | ADCS          | 10.1.1.11   |
+| dc01.corp.contoso.com      | DC01          | DC            | 10.1.1.1    |
+| dc02.corp.contoso.com      | DC02          | DC, ADFS      | 10.1.1.2    |
+
