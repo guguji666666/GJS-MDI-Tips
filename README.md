@@ -623,87 +623,82 @@ foreach ($server in $serverList) {
 
 ### 9. 统计 DC 的 Security 事件数量和 `lsass.exe` 的内存使用情况
 
----
-
-## 🇨🇳 中文版 · PowerShell 脚本 + 使用说明
-
-### 📘 脚本用途说明
-
-此 PowerShell 脚本可用于收集域内所有域控制器（DC）以下信息：
-
-* 每小时的 Security 事件数量及来源；
-* 每小时 `lsass.exe` 进程的平均内存使用率、最大内存使用率及其发生时间；
-* 每台 DC 的 FQDN、IP 地址、最大物理内存、是否为动态内存；
-* 结果会以表格形式展示，并另存为 CSV 文件以便后续分析。
-
----
-
-### 📜 脚本内容（中英文注释）
-
 ```powershell
-<# 
+<#
 作者: 咕咕鸡
-描述: 此脚本收集每台域控的每小时 Security 事件数量、LSASS 内存使用情况，以及系统信息。
+功能: 收集域控资源使用，支持 Ctrl+C 中断后仍保存数据并显示图表（可选择 DC）
 #>
 
 param(
-    [int]$DurationHours = 1, # 可持续运行的小时数
-    [int]$IntervalMinutes = 60, # 每次采样的间隔（分钟）
-    [string]$OutputCSV = "DC_MDI_Usage_Report.csv"
+    [int]$DurationHours = 1,
+    [int]$IntervalMinutes = 60,
+    [string]$OutputCSV = "DC_MDI_Usage_Report.csv",
+    [System.Management.Automation.PSCredential]$Credential
 )
 
-# 终止标志
-$script:StopRequested = $false
-
-# 添加 Ctrl+C 监听
-$null = Register-EngineEvent PowerShell.Exiting -Action {
-    Write-Host "脚本终止中..." -ForegroundColor Yellow
-    $script:StopRequested = $true
+if (-not $Credential) {
+    $Credential = Get-Credential -Message "请输入远程访问凭据 / Enter remote credentials"
 }
 
-# 获取所有域控制器
-$DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
+# 启用 Ctrl+C 检测
+$global:stop = $false
+[Console]::TreatControlCAsInput = $true
+
+function Check-CtrlC {
+    if ([Console]::KeyAvailable) {
+        $key = [Console]::ReadKey($true)
+        if ($key.Key -eq 'C' -and $key.Modifiers -band [ConsoleModifiers]::Control) {
+            Write-Host "`n检测到 Ctrl+C，正在终止采样并保存数据... / Ctrl+C detected. Exiting gracefully..." -ForegroundColor Yellow
+            $global:stop = $true
+        }
+    }
+}
+
+# 获取所有域控
+try {
+    $DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
+} catch {
+    Write-Error "无法获取域控列表，请确认 ActiveDirectory 模块可用 / AD module error"
+    exit
+}
 
 $results = @()
 
 # 主循环
 for ($i = 0; $i -lt $DurationHours; $i++) {
-    if ($script:StopRequested) { break }
-
     foreach ($dc in $DCs) {
+        if ($global:stop) { break }
+        Check-CtrlC
+        if ($global:stop) { break }
+
         try {
             $hostname = $dc.HostName
             $ip = $dc.IPv4Address
             $fqdn = $dc.Name
+            $timeWindow = (Get-Date).AddMinutes(-$IntervalMinutes)
 
-            # 获取事件日志数量
-            $timeWindow = (Get-Date).AddHours(-1)
-            $eventCount = Invoke-Command -ComputerName $hostname -ScriptBlock {
-                Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$using:timeWindow} -ErrorAction SilentlyContinue | 
-                Group-Object -Property ProviderName | 
-                Select-Object Name, Count
+            $eventCount = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$using:timeWindow} -ErrorAction SilentlyContinue |
+                Group-Object -Property ProviderName | Select-Object Name, Count
             }
 
-            # 获取 LSASS 进程信息
-            $lsassInfo = Invoke-Command -ComputerName $hostname -ScriptBlock {
-                $proc = Get-Process lsass
-                return [PSCustomObject]@{
-                    MemoryMB = [math]::Round($proc.WorkingSet64 / 1MB, 2)
-                    PeakMemoryMB = [math]::Round($proc.PeakWorkingSet64 / 1MB, 2)
-                    Time = (Get-Date)
+            $lsassInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                $p = Get-Process lsass
+                [PSCustomObject]@{
+                    MemoryMB     = [math]::Round($p.WorkingSet64 / 1MB, 2)
+                    PeakMemoryMB = [math]::Round($p.PeakWorkingSet64 / 1MB, 2)
+                    Time         = Get-Date
                 }
             }
 
-            # 获取系统信息
-            $sysInfo = Invoke-Command -ComputerName $hostname -ScriptBlock {
-                $cs = Get-CimInstance -ClassName Win32_ComputerSystem
-                return [PSCustomObject]@{
-                    TotalRAMGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
-                    DynamicRAM = if ($cs.MemoryDevices -gt 0) { "是" } else { "否" }
+            $sysInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                $cs = Get-CimInstance Win32_ComputerSystem
+                [PSCustomObject]@{
+                    TotalRAMGB  = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
+                    DynamicRAM  = if ($cs.MemoryDevices -gt 0) { "是 / Yes" } else { "否 / No" }
                 }
             }
 
-            # 合并信息
             foreach ($ev in $eventCount) {
                 $results += [PSCustomObject]@{
                     DC_FQDN         = $fqdn
@@ -717,101 +712,98 @@ for ($i = 0; $i -lt $DurationHours; $i++) {
                     Dynamic_RAM     = $sysInfo.DynamicRAM
                 }
             }
-        }
-        catch {
-            Write-Warning "无法连接或获取 $($dc.Name) 的信息"
+
+            Write-Host "✅ 采集完成 $fqdn / Collected $fqdn" -ForegroundColor Green
+        } catch {
+            Write-Warning "❌ 无法采集 $($dc.Name) / Failed: $($_.Exception.Message)"
         }
     }
 
-    if ($i -lt $DurationHours - 1) {
-        Start-Sleep -Seconds ($IntervalMinutes * 60)
-    }
+    if ($global:stop -or ($i -ge $DurationHours - 1)) { break }
+    Start-Sleep -Seconds ($IntervalMinutes * 60)
 }
 
-# 输出表格
-$results | Format-Table -AutoSize
-
-# 保存为 CSV
+# 保存数据
 $results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
-Write-Host "结果已保存至: $OutputCSV" -ForegroundColor Green
+Write-Host "`n📁 数据已保存至: $OutputCSV / Data saved" -ForegroundColor Cyan
+
+# ======== 图表多选 UI + 渲染 ========
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms.DataVisualization
+
+$form = New-Object Windows.Forms.Form
+$form.Text = "请选择要显示的 DC / Select DC(s) to View"
+$form.Size = New-Object Drawing.Size(300,400)
+
+$listbox = New-Object Windows.Forms.ListBox
+$listbox.SelectionMode = 'MultiExtended'
+$listbox.Dock = 'Fill'
+($results | Select-Object -ExpandProperty DC_FQDN -Unique | Sort-Object) | ForEach-Object { $listbox.Items.Add($_) }
+
+$okButton = New-Object Windows.Forms.Button
+$okButton.Text = "确认 / OK"
+$okButton.Dock = 'Bottom'
+$okButton.Add_Click({ $form.Close() })
+
+$form.Controls.Add($listbox)
+$form.Controls.Add($okButton)
+$form.ShowDialog()
+
+$selectedDCs = $listbox.SelectedItems
+if ($selectedDCs.Count -eq 0) {
+    Write-Warning "未选择任何 DC，跳过绘图 / No DC selected. Skipping chart."
+    return
+}
+
+# 绘制图表
+$chartForm = New-Object Windows.Forms.Form
+$chartForm.Text = "LSASS 内存趋势图 / Memory Trend"
+$chartForm.Size = New-Object Drawing.Size(900,600)
+
+$chart = New-Object Windows.Forms.DataVisualization.Charting.Chart
+$chart.Dock = 'Fill'
+$chartArea = New-Object Windows.Forms.DataVisualization.Charting.ChartArea
+$chart.ChartAreas.Add($chartArea)
+
+$thresholdMB = 600
+
+foreach ($dc in $selectedDCs) {
+    $data = $results | Where-Object { $_.DC_FQDN -eq $dc } | Sort-Object Time
+
+    $series = New-Object Windows.Forms.DataVisualization.Charting.Series $dc
+    $series.ChartType = 'Line'
+    $series.BorderWidth = 2
+
+    foreach ($item in $data) {
+        $p = $series.Points.AddXY($item.Time.ToString("HH:mm"), $item.LSASS_Mem_MB)
+        if ($item.LSASS_Mem_MB -gt $thresholdMB) {
+            $series.Points[$p].Color = 'Red'
+            $series.Points[$p].Label = "$($item.LSASS_Mem_MB) MB"
+            $series.Points[$p].LabelForeColor = 'Red'
+            $series.Points[$p].MarkerStyle = 'Circle'
+            $series.Points[$p].MarkerSize = 8
+        }
+    }
+    $chart.Series.Add($series)
+
+    # 平均值线
+    $avg = [math]::Round(($data | Measure-Object LSASS_Mem_MB -Average).Average, 2)
+    $avgSeries = New-Object Windows.Forms.DataVisualization.Charting.Series "平均值 - $dc"
+    $avgSeries.ChartType = 'Line'
+    $avgSeries.BorderDashStyle = 'Dot'
+    $avgSeries.Color = 'DarkRed'
+    $avgSeries.BorderWidth = 1
+    foreach ($item in $data) {
+        $null = $avgSeries.Points.AddXY($item.Time.ToString("HH:mm"), $avg)
+    }
+    $chart.Series.Add($avgSeries)
+}
+
+$chart.Titles.Add("LSASS 内存趋势图（含平均值/高亮） / Memory Trend with Avg & Highlight")
+$chartForm.Controls.Add($chart)
+$chartForm.Add_Shown({ $chartForm.Activate() })
+[void]$chartForm.ShowDialog()
 ```
-
----
-
-### 🧭 使用说明
-
-1. **环境准备**：
-
-   * PowerShell 5.1+
-   * 目标机器加入域
-   * 安装 `ActiveDirectory` 模块（RSAT 工具）
-   * 启用远程管理（WinRM）
-
-2. **运行脚本**：
-   将脚本保存为 `Check-MDI-DCUsage.ps1`，使用管理员身份运行 PowerShell，执行如下命令：
-
-   ```powershell
-   .\Check-MDI-DCUsage.ps1 -DurationHours 3 -IntervalMinutes 60
-   ```
-
-   表示脚本运行 3 小时，每小时采样一次。
-
-3. **中断方法**：
-   运行过程中，按下 `Ctrl + C` 可安全中止。
-
-4. **输出结果**：
-
-   * 控制台表格显示；
-   * 同时导出为 `DC_MDI_Usage_Report.csv`，保存在脚本运行目录。
-
----
-
-## 🇺🇸 English Version · PowerShell Script + Usage
-
-### 📘 Script Purpose
-
-This PowerShell script collects the following from each Domain Controller (DC):
-
-* Hourly Security log volume and event source;
-* LSASS.exe memory usage (average and peak, with timestamp);
-* DC FQDN, IP address, total RAM, and dynamic RAM status;
-* Outputs results as a table and saves to a CSV file.
-
----
-
-### 📜 Script (with bilingual comments)
-
-*(Same code as above; comments already in English and Chinese)*
-
----
-
-### 🧭 How to Use
-
-1. **Prerequisites**:
-
-   * PowerShell 5.1+
-   * Machine must be domain-joined
-   * `ActiveDirectory` module installed (via RSAT)
-   * WinRM must be enabled for remote execution
-
-2. **Run the Script**:
-   Save the script as `Check-MDI-DCUsage.ps1`, open PowerShell as Administrator, and run:
-
-   ```powershell
-   .\Check-MDI-DCUsage.ps1 -DurationHours 3 -IntervalMinutes 60
-   ```
-
-   This means it will sample once every hour for a total of 3 hours.
-
-3. **To Stop Manually**:
-   Press `Ctrl + C` at any time while running.
-
-4. **Output**:
-
-   * Table will be shown in the console;
-   * Full report saved as `DC_MDI_Usage_Report.csv` in current directory.
-
----
 
 
 
