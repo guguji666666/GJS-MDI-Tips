@@ -623,87 +623,60 @@ foreach ($server in $serverList) {
 
 ### 9. 统计 DC 的 Security 事件数量和 `lsass.exe` 的内存使用情况
 
----
+当然可以，以下是完整的 PowerShell 脚本，支持：
 
-## ✅ 1. 脚本作用说明（中英文）
-
-### 📌 Script Purpose / 脚本作用
-
-This PowerShell script is designed to **periodically collect resource usage metrics from all Domain Controllers (DCs)**, including:
-
-* LSASS process memory usage
-* CPU usage
-* Network traffic (bytes/sec)
-* Security event log volume by provider
-* Physical memory size and dynamic RAM status
-
-It supports:
-
-* Sampling over multiple rounds with a defined time interval
-* Exporting all data to a CSV
-* (Optional) Visualizing memory, CPU, and network trends using Windows Forms charts
+* 🕒 根据 **持续时间（分钟）** 控制运行；
+* 🔁 **持续采样**所有域控制器，无需指定轮数；
+* 🧠 采集内容包括：LSASS 内存、CPU 使用率、网络流量、安全事件日志；
+* 💾 最终导出为 UTF-8 编码的 CSV 文件；
+* 📝 含中英文注释，方便发布到 GitHub。
 
 ---
-
-本 PowerShell 脚本用于从所有**域控制器（DC）定期采集资源使用情况**，包括：
-
-* LSASS 进程的内存使用情况
-* CPU 使用率
-* 网络流量（字节/秒）
-* 安全事件日志数量（按 Provider 分类）
-* 系统总内存、动态内存设置情况
-
-功能包括：
-
-* 多轮采样、可设置间隔时间
-* 导出所有数据为 CSV 报表
-* （可选）使用图表展示内存、CPU 和网络趋势（基于 Windows Forms）
-
----
-
-## 🧾 2. 脚本内容（含中英文注释）
 
 ```powershell
 param(
-    [int]$MaxRounds = 10,  # [EN] Total number of sampling rounds / [中文] 总共采样轮数
-    [int]$IntervalMinutes = 60,  # [EN] Interval between rounds (in minutes) / [中文] 每轮采样间隔时间（分钟）
-    [string]$OutputCSV = "DC_MDI_Usage_Report.csv",  # [EN] Output CSV file name / [中文] 导出的 CSV 文件名
-    [System.Management.Automation.PSCredential]$Credential  # [EN] Domain credentials / [中文] 域管理员凭据
+    [int]$DurationMinutes = 120,  # [EN] Total runtime in minutes / [中文] 脚本运行总时长（分钟）
+    [int]$IntervalSeconds = 60,   # [EN] Interval between each sampling / [中文] 每轮采样之间的间隔（秒）
+    [string]$OutputCSV = "DC_MDI_Usage_Report.csv",  # [EN] Output CSV file path / [中文] 导出文件路径
+    [System.Management.Automation.PSCredential]$Credential  # [EN] Credentials for remote DCs / [中文] 用于远程访问 DC 的凭据
 )
 
-# Prompt for credentials if not provided / 如果未指定凭据，则提示输入
+# Prompt for credential if not provided / 如果未传入凭据，提示用户输入
 if (-not $Credential) {
     $Credential = Get-Credential -Message "Please enter credentials / 请输入凭据"
 }
 
-$results = @()  # Store all sampling results / 用于保存采样数据
+$results = @()  # Store sampling results / 用于保存所有采样结果
+$startTime = Get-Date
+$endTime = $startTime.AddMinutes($DurationMinutes)
+$round = 1
 
-# ========== Get Domain Controllers ==========
+# Get all domain controllers / 获取所有域控制器
 try {
     $DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
 } catch {
-    Write-Error "❌ Unable to retrieve DC list. Please ensure the ActiveDirectory module is installed. / 无法获取 DC 列表，请确认 ActiveDirectory 模块已安装"
+    Write-Error "❌ Unable to retrieve DC list. Ensure the ActiveDirectory module is available. / 无法获取 DC 列表，请确认 ActiveDirectory 模块可用"
     exit
 }
 
-# ========== Sampling Loop ==========
-for ($round = 1; $round -le $MaxRounds; $round++) {
-    Write-Host "`n🔁 Sampling Round $round / 第 $round 轮采样..." -ForegroundColor Cyan
+# Continuous sampling until time is up / 持续采样直到设定时长结束
+while ((Get-Date) -lt $endTime) {
+    Write-Host "`n🔁 Sampling Round $round @ $(Get-Date -Format 'HH:mm:ss') / 第 $round 轮采样" -ForegroundColor Cyan
 
     foreach ($dc in $DCs) {
         try {
             $hostname = $dc.HostName
             $ip = $dc.IPv4Address
             $fqdn = $dc.Name
-            $timeWindow = (Get-Date).AddMinutes(-$IntervalMinutes)
+            $timeWindow = (Get-Date).AddSeconds(-$IntervalSeconds)  # Limit event log to last X seconds
 
-            # Get event log volume by provider / 获取日志来源及其数量
+            # Get security event count / 获取安全事件数量
             $eventCount = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$using:timeWindow} -ErrorAction SilentlyContinue |
                 Group-Object -Property ProviderName | Select-Object Name, Count
             }
 
-            # Get LSASS memory usage / 获取 LSASS 内存
+            # Get LSASS process memory usage / 获取 LSASS 内存占用
             $lsassInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $p = Get-Process lsass
                 [PSCustomObject]@{
@@ -713,7 +686,7 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
                 }
             }
 
-            # Get system RAM / 获取系统内存信息
+            # Get system memory info / 获取系统总内存和动态内存设置
             $sysInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $cs = Get-CimInstance Win32_ComputerSystem
                 [PSCustomObject]@{
@@ -728,14 +701,14 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
                 [math]::Round($cpu.CounterSamples[0].CookedValue, 2)
             }
 
-            # Get network usage / 获取网络吞吐量（Bytes/sec）
+            # Get network throughput / 获取网络吞吐量（Bytes/sec）
             $netStats = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 Get-Counter -Counter "\\Network Interface(*)\\Bytes Total/sec" |
                 Select-Object -ExpandProperty CounterSamples |
                 Measure-Object -Property CookedValue -Average | Select-Object -ExpandProperty Average
             }
 
-            # Combine and store result / 合并结果并保存
+            # Combine all data into results / 整合数据写入结果集中
             foreach ($ev in $eventCount) {
                 $results += [PSCustomObject]@{
                     DC_FQDN        = $fqdn
@@ -758,17 +731,25 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
         }
     }
 
-    # Wait between rounds / 每轮之间等待设定间隔
-    if ($round -lt $MaxRounds) {
-        Start-Sleep -Seconds ($IntervalMinutes * 60)
-    }
+    $round++
+    Start-Sleep -Seconds $IntervalSeconds  # Wait before next round / 等待进入下一轮采样
 }
 
-# ========== Export to CSV ==========
+# Export final result to CSV / 将结果导出为 CSV 文件
 $results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
-Write-Host "`n📁 CSV saved to: $OutputCSV / 数据已导出到 CSV 文件: $OutputCSV" -ForegroundColor Cyan
+Write-Host "`n📁 CSV saved to: $OutputCSV / 数据已导出至 CSV 文件" -ForegroundColor Cyan
 ```
 
 ---
+
+### ✅ 如何运行示例：
+
+```powershell
+.\Check-MDI-DCUsage.ps1 -DurationMinutes 90 -IntervalSeconds 60
+```
+
+📌 表示持续采样 90 分钟，每隔 60 秒采集一次。
+
+
 
 
