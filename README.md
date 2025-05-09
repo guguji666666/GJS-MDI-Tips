@@ -623,13 +623,7 @@ foreach ($server in $serverList) {
 
 ### 9. 统计 DC 的 Security 事件数量和 `lsass.exe` 的内存使用情况
 
-当然可以，以下是完整的 PowerShell 脚本，支持：
-
-* 🕒 根据 **持续时间（分钟）** 控制运行；
-* 🔁 **持续采样**所有域控制器，无需指定轮数；
-* 🧠 采集内容包括：LSASS 内存、CPU 使用率、网络流量、安全事件日志；
-* 💾 最终导出为 UTF-8 编码的 CSV 文件；
-* 📝 含中英文注释，方便发布到 GitHub。
+当然可以，以下是你要的完整 PowerShell 脚本（容错增强版），适用于持续采样服务器资源数据，**含中英文注释**，可直接贴到 GitHub：
 
 ---
 
@@ -641,17 +635,17 @@ param(
     [System.Management.Automation.PSCredential]$Credential  # [EN] Credentials for remote DCs / [中文] 用于远程访问 DC 的凭据
 )
 
-# Prompt for credential if not provided / 如果未传入凭据，提示用户输入
+# [EN] Prompt for credentials if not provided / [中文] 如果未提供凭据，提示输入
 if (-not $Credential) {
     $Credential = Get-Credential -Message "Please enter credentials / 请输入凭据"
 }
 
-$results = @()  # Store sampling results / 用于保存所有采样结果
+$results = @()
 $startTime = Get-Date
 $endTime = $startTime.AddMinutes($DurationMinutes)
 $round = 1
 
-# Get all domain controllers / 获取所有域控制器
+# [EN] Get domain controllers / [中文] 获取域控制器列表
 try {
     $DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
 } catch {
@@ -659,7 +653,7 @@ try {
     exit
 }
 
-# Continuous sampling until time is up / 持续采样直到设定时长结束
+# [EN] Loop until time is up / [中文] 直到达到总运行时长前持续采样
 while ((Get-Date) -lt $endTime) {
     Write-Host "`n🔁 Sampling Round $round @ $(Get-Date -Format 'HH:mm:ss') / 第 $round 轮采样" -ForegroundColor Cyan
 
@@ -668,15 +662,15 @@ while ((Get-Date) -lt $endTime) {
             $hostname = $dc.HostName
             $ip = $dc.IPv4Address
             $fqdn = $dc.Name
-            $timeWindow = (Get-Date).AddSeconds(-$IntervalSeconds)  # Limit event log to last X seconds
+            $timeWindow = (Get-Date).AddSeconds(-$IntervalSeconds)
 
-            # Get security event count / 获取安全事件数量
+            # [EN] Get security event counts / [中文] 获取安全事件数量
             $eventCount = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$using:timeWindow} -ErrorAction SilentlyContinue |
                 Group-Object -Property ProviderName | Select-Object Name, Count
             }
 
-            # Get LSASS process memory usage / 获取 LSASS 内存占用
+            # [EN] Get LSASS memory usage / [中文] 获取 LSASS 内存使用
             $lsassInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $p = Get-Process lsass
                 [PSCustomObject]@{
@@ -686,7 +680,7 @@ while ((Get-Date) -lt $endTime) {
                 }
             }
 
-            # Get system memory info / 获取系统总内存和动态内存设置
+            # [EN] Get system memory info / [中文] 获取系统内存
             $sysInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $cs = Get-CimInstance Win32_ComputerSystem
                 [PSCustomObject]@{
@@ -695,20 +689,27 @@ while ((Get-Date) -lt $endTime) {
                 }
             }
 
-            # Get CPU usage / 获取 CPU 使用率
+            # [EN] Get CPU usage (fault-tolerant) / [中文] 获取 CPU 使用率（容错）
             $cpuUsage = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
-                $cpu = Get-Counter '\\Processor(_Total)\\% Processor Time'
-                [math]::Round($cpu.CounterSamples[0].CookedValue, 2)
+                try {
+                    $val = Get-Counter '\\Processor(_Total)\\% Processor Time' -ErrorAction Stop
+                    if ($val.CounterSamples.Count -gt 0) {
+                        [math]::Round($val.CounterSamples[0].CookedValue, 2)
+                    } else { 0 }
+                } catch { 0 }
             }
 
-            # Get network throughput / 获取网络吞吐量（Bytes/sec）
-            $netStats = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
-                Get-Counter -Counter "\\Network Interface(*)\\Bytes Total/sec" |
-                Select-Object -ExpandProperty CounterSamples |
-                Measure-Object -Property CookedValue -Average | Select-Object -ExpandProperty Average
+            # [EN] Get network usage (fault-tolerant) / [中文] 获取网络吞吐量（容错）
+            $netUsage = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                try {
+                    $val = Get-Counter -Counter "\\Network Interface(*)\\Bytes Total/sec" -ErrorAction Stop
+                    if ($val.CounterSamples.Count -gt 0) {
+                        ($val.CounterSamples | Measure-Object -Property CookedValue -Average).Average
+                    } else { 0 }
+                } catch { 0 }
             }
 
-            # Combine all data into results / 整合数据写入结果集中
+            # [EN] Combine all results into one record / [中文] 整合所有信息为一条记录
             foreach ($ev in $eventCount) {
                 $results += [PSCustomObject]@{
                     DC_FQDN        = $fqdn
@@ -721,7 +722,7 @@ while ((Get-Date) -lt $endTime) {
                     Total_RAM_GB   = $sysInfo.TotalRAMGB
                     Dynamic_RAM    = $sysInfo.DynamicRAM
                     CPU_Usage_Pct  = $cpuUsage
-                    Net_Bytes_Sec  = [math]::Round($netStats / 1KB, 2)  # Convert to KB/sec
+                    Net_Bytes_Sec  = [math]::Round($netUsage / 1KB, 2)
                 }
             }
 
@@ -732,23 +733,23 @@ while ((Get-Date) -lt $endTime) {
     }
 
     $round++
-    Start-Sleep -Seconds $IntervalSeconds  # Wait before next round / 等待进入下一轮采样
+    Start-Sleep -Seconds $IntervalSeconds
 }
 
-# Export final result to CSV / 将结果导出为 CSV 文件
+# [EN] Export to CSV / [中文] 导出为 CSV 文件
 $results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
 Write-Host "`n📁 CSV saved to: $OutputCSV / 数据已导出至 CSV 文件" -ForegroundColor Cyan
 ```
 
 ---
 
-### ✅ 如何运行示例：
+🔧 建议保存为文件名：`Check-MDI-DCUsage-Resilient.ps1`
+
+🟢 运行示例：
 
 ```powershell
-.\Check-MDI-DCUsage.ps1 -DurationMinutes 90 -IntervalSeconds 60
+.\Check-MDI-DCUsage-Resilient.ps1 -DurationMinutes 60 -IntervalSeconds 30
 ```
-
-📌 表示持续采样 90 分钟，每隔 60 秒采集一次。
 
 
 
