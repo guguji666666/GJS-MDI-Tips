@@ -623,10 +623,12 @@ foreach ($server in $serverList) {
 
 ### 9. 统计 DC 的 Security 事件数量和 `lsass.exe` 的内存使用情况
 
+## ✅ 完整脚本：支持后台输入监听 + 多选 DC 绘图 + 平均值 & 高亮
+
 ```powershell
 <#
 作者: 咕咕鸡
-功能: 收集域控资源使用，支持 Ctrl+C 中断后仍保存数据并显示图表（可选择 DC）
+功能: 使用后台线程监听用户输入 Q 或 Enter，优雅终止采样并绘制图表
 #>
 
 param(
@@ -640,36 +642,32 @@ if (-not $Credential) {
     $Credential = Get-Credential -Message "请输入远程访问凭据 / Enter remote credentials"
 }
 
-# 启用 Ctrl+C 检测
-$global:stop = $false
-[Console]::TreatControlCAsInput = $true
+# 设置全局停止标志
+$global:StopSampling = $false
 
-function Check-CtrlC {
-    if ([Console]::KeyAvailable) {
-        $key = [Console]::ReadKey($true)
-        if ($key.Key -eq 'C' -and $key.Modifiers -band [ConsoleModifiers]::Control) {
-            Write-Host "`n检测到 Ctrl+C，正在终止采样并保存数据... / Ctrl+C detected. Exiting gracefully..." -ForegroundColor Yellow
-            $global:stop = $true
-        }
+# 启动后台线程监听 Q 或 Enter
+$inputJob = Start-Job {
+    Write-Host "`n🛑 输入 Q 或直接回车以停止采样... / Type Q or press Enter to stop sampling." -ForegroundColor Cyan
+    $input = Read-Host "⏳ 正在采样中 / Sampling..."
+    if ($input -eq "" -or $input -eq "Q" -or $input -eq "q") {
+        Set-Variable -Name StopSampling -Value $true -Scope Global
     }
 }
 
-# 获取所有域控
+# 获取 DC 列表
 try {
     $DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
 } catch {
-    Write-Error "无法获取域控列表，请确认 ActiveDirectory 模块可用 / AD module error"
+    Write-Error "无法获取域控列表，请检查 ActiveDirectory 模块"
     exit
 }
 
 $results = @()
 
-# 主循环
+# 主采样循环
 for ($i = 0; $i -lt $DurationHours; $i++) {
     foreach ($dc in $DCs) {
-        if ($global:stop) { break }
-        Check-CtrlC
-        if ($global:stop) { break }
+        if ($global:StopSampling) { break }
 
         try {
             $hostname = $dc.HostName
@@ -713,26 +711,30 @@ for ($i = 0; $i -lt $DurationHours; $i++) {
                 }
             }
 
-            Write-Host "✅ 采集完成 $fqdn / Collected $fqdn" -ForegroundColor Green
+            Write-Host "✅ 已采集 $fqdn / Collected $fqdn" -ForegroundColor Green
         } catch {
             Write-Warning "❌ 无法采集 $($dc.Name) / Failed: $($_.Exception.Message)"
         }
     }
 
-    if ($global:stop -or ($i -ge $DurationHours - 1)) { break }
+    if ($global:StopSampling -or ($i -ge $DurationHours - 1)) { break }
     Start-Sleep -Seconds ($IntervalMinutes * 60)
 }
 
-# 保存数据
-$results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
-Write-Host "`n📁 数据已保存至: $OutputCSV / Data saved" -ForegroundColor Cyan
+# 停止监听线程
+Stop-Job $inputJob | Out-Null
+Remove-Job $inputJob | Out-Null
 
-# ======== 图表多选 UI + 渲染 ========
+# 保存结果
+$results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
+Write-Host "`n📁 数据保存至: $OutputCSV / Results saved" -ForegroundColor Cyan
+
+# ==================== 图表展示部分 ====================
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Windows.Forms.DataVisualization
 
 $form = New-Object Windows.Forms.Form
-$form.Text = "请选择要显示的 DC / Select DC(s) to View"
+$form.Text = "选择 DC 绘图 / Select DC(s) to View"
 $form.Size = New-Object Drawing.Size(300,400)
 
 $listbox = New-Object Windows.Forms.ListBox
@@ -751,11 +753,10 @@ $form.ShowDialog()
 
 $selectedDCs = $listbox.SelectedItems
 if ($selectedDCs.Count -eq 0) {
-    Write-Warning "未选择任何 DC，跳过绘图 / No DC selected. Skipping chart."
+    Write-Warning "未选择 DC，跳过绘图"
     return
 }
 
-# 绘制图表
 $chartForm = New-Object Windows.Forms.Form
 $chartForm.Text = "LSASS 内存趋势图 / Memory Trend"
 $chartForm.Size = New-Object Drawing.Size(900,600)
@@ -805,5 +806,14 @@ $chartForm.Add_Shown({ $chartForm.Activate() })
 [void]$chartForm.ShowDialog()
 ```
 
+---
+
+运行方式示例：
+
+```powershell
+.\Check-MDI-DCUsage.ps1 -DurationHours 3 -IntervalMinutes 60
+```
+
+📌 在任意时刻输入 `Q` 或直接 `回车`，即可提前终止采样并生成图表。
 
 
