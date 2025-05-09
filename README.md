@@ -623,79 +623,87 @@ foreach ($server in $serverList) {
 
 ### 9. 统计 DC 的 Security 事件数量和 `lsass.exe` 的内存使用情况
 
-完美！下面是你要的**最终稳定版 PowerShell 脚本**，已解决所有中断问题：
+---
+
+## ✅ 1. 脚本作用说明（中英文）
+
+### 📌 Script Purpose / 脚本作用
+
+This PowerShell script is designed to **periodically collect resource usage metrics from all Domain Controllers (DCs)**, including:
+
+* LSASS process memory usage
+* CPU usage
+* Network traffic (bytes/sec)
+* Security event log volume by provider
+* Physical memory size and dynamic RAM status
+
+It supports:
+
+* Sampling over multiple rounds with a defined time interval
+* Exporting all data to a CSV
+* (Optional) Visualizing memory, CPU, and network trends using Windows Forms charts
 
 ---
 
-## ✅ 核心特性：
+本 PowerShell 脚本用于从所有**域控制器（DC）定期采集资源使用情况**，包括：
 
-* 🔐 输入凭据后自动开始采样
-* 🔁 主线程**每台 DC 完成后主动检查 `stop.flag` 文件**
-* 🛑 用户只需在任意窗口运行：
+* LSASS 进程的内存使用情况
+* CPU 使用率
+* 网络流量（字节/秒）
+* 安全事件日志数量（按 Provider 分类）
+* 系统总内存、动态内存设置情况
 
-  ```powershell
-  New-Item -Path C:\temp\stop.flag -ItemType File -Force
-  ```
+功能包括：
 
-  即可中止采样、保存结果并生成图表
-* 📊 图表支持：多选 DC、平均值线、高亮超限点
+* 多轮采样、可设置间隔时间
+* 导出所有数据为 CSV 报表
+* （可选）使用图表展示内存、CPU 和网络趋势（基于 Windows Forms）
 
 ---
 
-## 📜 最终脚本：主线程轮询中断 + 图表展示
+## 🧾 2. 脚本内容（含中英文注释）
 
 ```powershell
 param(
-    [int]$MaxRounds = 10,
-    [int]$IntervalMinutes = 60,
-    [string]$OutputCSV = "DC_MDI_Usage_Report.csv",
-    [System.Management.Automation.PSCredential]$Credential
+    [int]$MaxRounds = 10,  # [EN] Total number of sampling rounds / [中文] 总共采样轮数
+    [int]$IntervalMinutes = 60,  # [EN] Interval between rounds (in minutes) / [中文] 每轮采样间隔时间（分钟）
+    [string]$OutputCSV = "DC_MDI_Usage_Report.csv",  # [EN] Output CSV file name / [中文] 导出的 CSV 文件名
+    [System.Management.Automation.PSCredential]$Credential  # [EN] Domain credentials / [中文] 域管理员凭据
 )
 
-# ========== 初始化 ==========
+# Prompt for credentials if not provided / 如果未指定凭据，则提示输入
 if (-not $Credential) {
-    $Credential = Get-Credential -Message "请输入凭据 / Enter credentials"
+    $Credential = Get-Credential -Message "Please enter credentials / 请输入凭据"
 }
 
-$flagPath = "C:\\temp\\stop.flag"
-if (Test-Path $flagPath) { Remove-Item $flagPath -Force }
+$results = @()  # Store all sampling results / 用于保存采样数据
 
-Write-Host "📌 运行中。如要中止，请执行：" -ForegroundColor Cyan
-Write-Host "New-Item -Path $flagPath -ItemType File -Force" -ForegroundColor Yellow
-
-$results = @()
-
-# ========== 获取 DC ==========
+# ========== Get Domain Controllers ==========
 try {
     $DCs = Get-ADDomainController -Filter * | Select-Object Name, HostName, IPv4Address
 } catch {
-    Write-Error "❌ 无法获取 DC 列表，请检查 ActiveDirectory 模块"
+    Write-Error "❌ Unable to retrieve DC list. Please ensure the ActiveDirectory module is installed. / 无法获取 DC 列表，请确认 ActiveDirectory 模块已安装"
     exit
 }
 
-# ========== 采样循环 ==========
+# ========== Sampling Loop ==========
 for ($round = 1; $round -le $MaxRounds; $round++) {
-    Write-Host "`n🔁 第 $round 轮采样..." -ForegroundColor Cyan
+    Write-Host "`n🔁 Sampling Round $round / 第 $round 轮采样..." -ForegroundColor Cyan
 
     foreach ($dc in $DCs) {
-        if (Test-Path $flagPath) {
-            Write-Host "🛑 检测到 stop.flag，终止采样..." -ForegroundColor Yellow
-            goto EndSampling
-        }
-
         try {
             $hostname = $dc.HostName
             $ip = $dc.IPv4Address
             $fqdn = $dc.Name
             $timeWindow = (Get-Date).AddMinutes(-$IntervalMinutes)
 
-            # 安全事件数量
+            # Get event log volume by provider / 获取日志来源及其数量
             $eventCount = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 Get-WinEvent -FilterHashtable @{LogName='Security'; StartTime=$using:timeWindow} -ErrorAction SilentlyContinue |
                 Group-Object -Property ProviderName | Select-Object Name, Count
             }
 
-            # LSASS 内存
+            # Get LSASS memory usage / 获取 LSASS 内存
             $lsassInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $p = Get-Process lsass
                 [PSCustomObject]@{
@@ -705,15 +713,29 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
                 }
             }
 
-            # 系统内存信息
+            # Get system RAM / 获取系统内存信息
             $sysInfo = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
                 $cs = Get-CimInstance Win32_ComputerSystem
                 [PSCustomObject]@{
                     TotalRAMGB = [math]::Round($cs.TotalPhysicalMemory / 1GB, 2)
-                    DynamicRAM = if ($cs.MemoryDevices -gt 0) { "是 / Yes" } else { "否 / No" }
+                    DynamicRAM = if ($cs.MemoryDevices -gt 0) { "Yes / 是" } else { "No / 否" }
                 }
             }
 
+            # Get CPU usage / 获取 CPU 使用率
+            $cpuUsage = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                $cpu = Get-Counter '\\Processor(_Total)\\% Processor Time'
+                [math]::Round($cpu.CounterSamples[0].CookedValue, 2)
+            }
+
+            # Get network usage / 获取网络吞吐量（Bytes/sec）
+            $netStats = Invoke-Command -ComputerName $hostname -Credential $Credential -ScriptBlock {
+                Get-Counter -Counter "\\Network Interface(*)\\Bytes Total/sec" |
+                Select-Object -ExpandProperty CounterSamples |
+                Measure-Object -Property CookedValue -Average | Select-Object -ExpandProperty Average
+            }
+
+            # Combine and store result / 合并结果并保存
             foreach ($ev in $eventCount) {
                 $results += [PSCustomObject]@{
                     DC_FQDN        = $fqdn
@@ -725,112 +747,28 @@ for ($round = 1; $round -le $MaxRounds; $round++) {
                     LSASS_Peak_MB  = $lsassInfo.PeakMB
                     Total_RAM_GB   = $sysInfo.TotalRAMGB
                     Dynamic_RAM    = $sysInfo.DynamicRAM
+                    CPU_Usage_Pct  = $cpuUsage
+                    Net_Bytes_Sec  = [math]::Round($netStats / 1KB, 2)  # Convert to KB/sec
                 }
             }
 
-            Write-Host "✅ 已采集 $fqdn" -ForegroundColor Green
+            Write-Host "✅ Sampled $fqdn / 采样完成: $fqdn" -ForegroundColor Green
         } catch {
-            Write-Warning "❌ 无法采集 $($dc.Name): $_"
+            Write-Warning "❌ Failed to sample $($dc.Name): $_ / 无法采集 $($dc.Name)"
         }
     }
 
+    # Wait between rounds / 每轮之间等待设定间隔
     if ($round -lt $MaxRounds) {
         Start-Sleep -Seconds ($IntervalMinutes * 60)
     }
 }
 
-:EndSampling
-
-# ========== 保存数据 ==========
+# ========== Export to CSV ==========
 $results | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding UTF8
-Write-Host "`n📁 已保存 CSV 至: $OutputCSV" -ForegroundColor Cyan
-
-# ========== 图表展示 ==========
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Windows.Forms.DataVisualization
-
-$form = New-Object Windows.Forms.Form
-$form.Text = "选择 DC 绘图"
-$form.Size = New-Object Drawing.Size(300,400)
-
-$listbox = New-Object Windows.Forms.ListBox
-$listbox.SelectionMode = 'MultiExtended'
-$listbox.Dock = 'Fill'
-($results | Select-Object -ExpandProperty DC_FQDN -Unique | Sort-Object) | ForEach-Object { $listbox.Items.Add($_) }
-
-$okButton = New-Object Windows.Forms.Button
-$okButton.Text = "确认 / OK"
-$okButton.Dock = 'Bottom'
-$okButton.Add_Click({ $form.Close() })
-
-$form.Controls.Add($listbox)
-$form.Controls.Add($okButton)
-$form.ShowDialog()
-
-$selectedDCs = $listbox.SelectedItems
-if ($selectedDCs.Count -eq 0) {
-    Write-Warning "未选择 DC，跳过图表"
-    return
-}
-
-$chartForm = New-Object Windows.Forms.Form
-$chartForm.Text = "LSASS 内存趋势图"
-$chartForm.Size = New-Object Drawing.Size(900,600)
-
-$chart = New-Object Windows.Forms.DataVisualization.Charting.Chart
-$chart.Dock = 'Fill'
-$chartArea = New-Object Windows.Forms.DataVisualization.Charting.ChartArea
-$chart.ChartAreas.Add($chartArea)
-
-$threshold = 600
-foreach ($dc in $selectedDCs) {
-    $data = $results | Where-Object { $_.DC_FQDN -eq $dc } | Sort-Object Time
-
-    $series = New-Object Windows.Forms.DataVisualization.Charting.Series $dc
-    $series.ChartType = 'Line'
-    $series.BorderWidth = 2
-
-    foreach ($item in $data) {
-        $p = $series.Points.AddXY($item.Time.ToString("HH:mm"), $item.LSASS_Mem_MB)
-        if ($item.LSASS_Mem_MB -gt $threshold) {
-            $series.Points[$p].Color = 'Red'
-            $series.Points[$p].MarkerStyle = 'Circle'
-            $series.Points[$p].MarkerSize = 7
-            $series.Points[$p].Label = "$($item.LSASS_Mem_MB) MB"
-        }
-    }
-    $chart.Series.Add($series)
-
-    $avg = [math]::Round(($data | Measure-Object LSASS_Mem_MB -Average).Average, 2)
-    $avgSeries = New-Object Windows.Forms.DataVisualization.Charting.Series "平均值 - $dc"
-    $avgSeries.ChartType = 'Line'
-    $avgSeries.BorderDashStyle = 'Dash'
-    $avgSeries.Color = 'DarkRed'
-    foreach ($item in $data) {
-        $null = $avgSeries.Points.AddXY($item.Time.ToString("HH:mm"), $avg)
-    }
-    $chart.Series.Add($avgSeries)
-}
-
-$chart.Titles.Add("LSASS 内存趋势图（含平均值 / 高亮）")
-$chartForm.Controls.Add($chart)
-[void]$chartForm.ShowDialog()
+Write-Host "`n📁 CSV saved to: $OutputCSV / 数据已导出到 CSV 文件: $OutputCSV" -ForegroundColor Cyan
 ```
 
 ---
-
-### ✅ 运行方法：
-
-```powershell
-.\Check-MDI-DCUsage.ps1 -MaxRounds 3 -IntervalMinutes 30
-```
-
-在任意 PowerShell 窗口中输入：
-
-```powershell
-New-Item -Path C:\temp\stop.flag -ItemType File -Force
-```
-
-即可立刻终止脚本、保存 CSV 并生成图表。
 
 
