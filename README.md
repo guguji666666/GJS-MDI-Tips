@@ -245,7 +245,7 @@ Write-Host "账户 ${gmsaAccountName} 上一次密码更改时间: $lastPassword
 English version
 ```powershell
 # Test network connectivity to the domain controller
-$domainController = "ECNVADPABR001.envisioncn.com"
+$domainController = "FQDN of DC"
 $portsToTest = @(389, 636, 88, 53)
 
 Write-Host "`n=== Testing Network Connectivity to Domain Controller ==="
@@ -283,7 +283,7 @@ if ($connectionSummary.Status -contains "Fail") {
 Chinese version
 ```powershell
 # 测试与域控制器的网络连通性
-$domainController = "ECNVADPABR001.envisioncn.com"
+$domainController = "FQDN of DC"
 $portsToTest = @(389, 636, 88, 53)
 
 Write-Host "`n=== 测试与域控制器的网络连通性 ==="
