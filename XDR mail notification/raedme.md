@@ -3,7 +3,7 @@
 ## Test with MDI alert as trigger
 
 ### 1. Navigate to XDR portal (security.microsoft.com)
-### 2。 Navigate to System > settings > Microsoft Defender XDR > Email notifications > Incidents > Add incident notification rule
+### 2. Navigate to System > settings > Microsoft Defender XDR > Email notifications > Incidents > Add incident notification rule
 ![image](https://github.com/user-attachments/assets/d4745bf8-1984-4446-a078-8c06ad626bac)
 
 ### 3. Create the rule
@@ -21,3 +21,13 @@ Fill in recipients
 
 Review the configuraion and confirm creation
 ![image](https://github.com/user-attachments/assets/4d559f6a-f445-472b-8f0c-b5a5307d1e49)
+
+
+### 4. Manually generate alert (in this sample we test honey token alert as metnioend in https://learn.microsoft.com/en-us/defender-for-identity/credential-access-alerts#honeytoken-authentication-activity-external-id-2014)
+
+Description:
+
+Honeytoken accounts are decoy accounts set up to identify and track malicious activity that involves these accounts. Honeytoken accounts should be left unused while having an attractive name to lure attackers (for example, SQL-Admin). Any authentication activity from them might indicate malicious behavior. For more information on honeytoken accounts, see Manage sensitive or honeytoken accounts.
+
+
+### 5. Review notification sent to mailboxes
