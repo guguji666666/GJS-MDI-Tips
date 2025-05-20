@@ -1,3 +1,47 @@
+# MDI cleanup scripr
+
+## Backup registries
+```powershell
+$backupPath = "C:\Temp\MdiSensorBackup"
+if (!(Test-Path $backupPath)) {
+    New-Item -ItemType Directory -Path $backupPath | Out-Null
+}
+
+$registryPaths = @(
+    "HKLM:\SOFTWARE\Classes\Installer\Products\",
+    "HKLM:\SOFTWARE\Classes\Installer\Features\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+)
+
+foreach ($guid in $guids) {
+    foreach ($regPath in $registryPaths) {
+        $fullKey = "$regPath$guid"
+
+        if (Test-Path $fullKey) {
+            $safeName = ($regPath -replace "[:\\]", "_") + $guid + ".reg"
+            $backupFile = Join-Path $backupPath $safeName
+
+            $exportCommand = "reg export `"$($fullKey -replace 'HKLM:', 'HKLM')`" `"$backupFile`" /y"
+            cmd.exe /c $exportCommand
+
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Backed up: $fullKey -> $backupFile"
+            } else {
+                Write-Warning "⚠️ Failed to back up: $fullKey"
+            }
+        } else {
+            Write-Host "⏭️ Key not found: $fullKey"
+        }
+    }
+}
+```
+
+
+## MDI cleanup
+```powershell
 <#
 .SYNOPSIS
     This PowerShell script fully removes all traces of the "Azure Advanced Threat Protection Sensor" from a Windows system.
@@ -253,3 +297,4 @@ if ($confirmation -eq 'yes') {
 }
 
 Write-Log "Script completed." -logFile $logFile
+```
