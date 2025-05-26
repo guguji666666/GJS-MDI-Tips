@@ -18,4 +18,12 @@ IdentityDirectoryEvents
 | order by Timestamp desc
 ```
 
-
+## 3.
+```kql
+IdentityDirectoryEvents
+| where ActionType in ("Security Group Created", "User Account Created")
+// | extend AF = parse_json(AdditionalFields)
+// | extend ActorAccount = AF["ACTOR.ACCOUNT"]
+// | project Timestamp, ActionType, ActorAccount, TargetAccountDisplayName, TargetDeviceName
+| order by Timestamp desc
+```
