@@ -18,7 +18,7 @@ IdentityDirectoryEvents
 | order by Timestamp desc
 ```
 
-## 3.
+## 3. User account, security group created
 ```kql
 IdentityDirectoryEvents
 | where ActionType in ("Security Group Created", "User Account Created")
