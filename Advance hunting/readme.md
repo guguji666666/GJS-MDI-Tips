@@ -1,5 +1,11 @@
 # 🕵️ Advanced Hunting Queries for AD-related Events
 
+## MDI events 
+* [Microsoft Defender for Identity monitored activities](https://learn.microsoft.com/en-us/defender-for-identity/monitored-activities)
+* [Event collection with Microsoft Defender for Identity](https://learn.microsoft.com/en-us/defender-for-identity/deploy/event-collection-overview)
+
+
+
 ## 1. ❌ User Logon Failures
 
 ```kql
