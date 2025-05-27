@@ -18,7 +18,7 @@ IdentityDirectoryEvents
 | order by Timestamp desc
 ```
 
-## 3. User account, security group created
+## 3. User account, device, account, security group created
 ```kql
 IdentityDirectoryEvents
 | where ActionType in ("Security Group Created", "User Account Created")
@@ -27,7 +27,28 @@ IdentityDirectoryEvents
 // | project Timestamp, ActionType, ActorAccount, TargetAccountDisplayName, TargetDeviceName
 | order by Timestamp desc
 ```
-
+```kql
+IdentityDirectoryEvents
+| where ActionType in ("Security Group Created", "User Account Created", "Device Account Created")
+| extend AF = parse_json(AdditionalFields)
+| extend
+    ActorAccount = AF["ACTOR.ACCOUNT"],
+    TargetUser = AF["TARGET_OBJECT.USER"],
+    TargetGroup = AF["TARGET_OBJECT.GROUP"],
+    TargetDevice = AF["TARGET_OBJECT.DEVICE"],
+    TargetEntityUser = AF["TARGET_OBJECT.ENTITY_USER"]
+| extend
+    TargetType = case(
+        isnotempty(TargetUser), "User",
+        isnotempty(TargetEntityUser) and isempty(TargetGroup) and isempty(TargetDevice), "User",
+        isnotempty(TargetGroup), "Group",
+        isnotempty(TargetDevice), "Device",
+        "Unknown"
+    ),
+    TargetName = coalesce(TargetUser, TargetGroup, TargetDevice, TargetEntityUser)
+| project Timestamp, ActionType, ActorAccount, TargetType, TargetName
+| order by Timestamp desc
+```
 ## 4. User/device/group object deleted
 ```kql
 IdentityDirectoryEvents
