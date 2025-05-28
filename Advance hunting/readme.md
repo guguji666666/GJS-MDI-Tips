@@ -10,6 +10,7 @@
 
 ```kql
 IdentityLogonEvents
+//| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range (UTC) 
 | where ActionType == "LogonFailed"                      // Filter only failed logon attempts
 | project Timestamp,                                      // Time when the logon attempt occurred
           AccountName,                                    // Username used in the logon attempt
@@ -26,6 +27,7 @@ IdentityLogonEvents
 
 ```kql
 IdentityDirectoryEvents
+//| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range (UTC) 
 | where ActionType in ("Account enabled", "Account disabled", "Account Deleted changed")  // Filter for lifecycle changes
 | extend AF = parse_json(AdditionalFields)                // Parse the AdditionalFields JSON for deeper info
 | extend ActorAccount = AF["ACTOR.ACCOUNT"]               // Extract the actor (user who performed the action)
@@ -43,6 +45,7 @@ IdentityDirectoryEvents
 
 ```kql
 IdentityDirectoryEvents
+//| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range (UTC) 
 | where ActionType in ("Security Group Created", "User Account Created", "Device Account Created")  // Track new object creations
 | extend AF = parse_json(AdditionalFields)                       // Parse JSON fields to extract deeper context
 | extend
@@ -74,7 +77,7 @@ IdentityDirectoryEvents
 
 ```kql
 IdentityDirectoryEvents
-| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range
+//| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range (UTC) 
 | where ActionType contains "Account Deleted changed"           // Filter for deletion-related actions
 | extend AF = parse_json(AdditionalFields)                      // Parse the AdditionalFields JSON blob
 | extend
