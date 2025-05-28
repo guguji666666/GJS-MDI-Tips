@@ -102,3 +102,7 @@ IdentityDirectoryEvents
           TargetName                                            // Name of deleted object
 | order by Timestamp desc                                       // Sort by latest events
 ```
+Could monitor events:
+* Deletion of distribution group (global and universal)
+* Deletion of distribution list
+![image](https://github.com/user-attachments/assets/d2aeb282-14aa-42cb-b74e-83388aa504ef)
