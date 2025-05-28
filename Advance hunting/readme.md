@@ -74,6 +74,7 @@ IdentityDirectoryEvents
 
 ```kql
 IdentityDirectoryEvents
+| where Timestamp between (datetime(2025-05-25 00:00:00) .. datetime(2025-05-27 23:59:59))  // Filter by time range
 | where ActionType contains "Account Deleted changed"           // Filter for deletion-related actions
 | extend AF = parse_json(AdditionalFields)                      // Parse the AdditionalFields JSON blob
 | extend
