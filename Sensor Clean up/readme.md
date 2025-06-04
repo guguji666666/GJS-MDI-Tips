@@ -1,6 +1,17 @@
-# MDI cleanup script
+# 🧼 MDI Cleanup Script
 
-## Backup registries
+This script fully removes all traces of **Azure Advanced Threat Protection Sensor (MDI Sensor)** from a Windows system, including:
+
+* Backing up relevant registry keys
+* Stopping and deleting services
+* Cleaning up GUID-based folders
+* Deleting the install directory
+* Logging all actions to a `.txt` file
+
+---
+
+## 📦 Backup Registry Keys
+
 ```powershell
 $backupPath = "C:\Temp\MdiSensorBackup"
 if (!(Test-Path $backupPath)) {
@@ -39,8 +50,10 @@ foreach ($guid in $guids) {
 }
 ```
 
+---
 
-## MDI cleanup
+## 🧽 Main Cleanup Script
+
 ```powershell
 <#
 .SYNOPSIS
@@ -82,7 +95,6 @@ foreach ($guid in $guids) {
 
 #---------------------- Function Definitions ----------------------#
 
-# Logs messages with a timestamp to the log file
 function Write-Log {
     param (
         [string]$message,
@@ -93,7 +105,6 @@ function Write-Log {
     Add-Content -Path $logFile -Value $logEntry
 }
 
-# Stops and deletes a Windows service by name, logging the result
 function Delete-Service {
     param (
         [string]$serviceName,
@@ -146,7 +157,6 @@ function Delete-Service {
     }
 }
 
-# Deletes registry keys related to the provided GUID
 function Delete-RegistryKeys {
     param (
         [string]$guid,
@@ -173,7 +183,6 @@ function Delete-RegistryKeys {
     }
 }
 
-# Deletes cache folder for a specific GUID under ProgramData
 function Delete-CacheFolder {
     param (
         [string]$guid,
@@ -190,7 +199,6 @@ function Delete-CacheFolder {
     }
 }
 
-# Deletes the sensor's installation folder
 function Delete-InstallFolder {
     param (
         [string]$logFile
@@ -206,7 +214,6 @@ function Delete-InstallFolder {
     }
 }
 
-# Searches the registry for GUIDs associated with the sensor by display name
 function Find-GUIDs {
     param (
         [string]$searchTerm,
@@ -237,13 +244,11 @@ function Find-GUIDs {
 
 #---------------------- Main Script Logic ----------------------#
 
-# Define search term and log file path
 $searchTerm = "Azure Advanced Threat Protection Sensor"
 $logFile = Join-Path $PSScriptRoot "MdiServiceDeletionLog.txt"
 
 Write-Log "Script started." -logFile $logFile
 
-# Step 1: Ask user to delete services
 $confirmation = Read-Host "Do you want to stop and delete the services 'aatpsensor' and 'aatpsensorupdater'? (yes/no)"
 if ($confirmation -eq 'yes') {
     Delete-Service -serviceName "aatpsensor" -logFile $logFile
@@ -258,7 +263,6 @@ if ($confirmation -eq 'yes') {
     exit
 }
 
-# Step 2: Find all GUIDs for registry and cache deletion
 $guids = Find-GUIDs -searchTerm $searchTerm -logFile $logFile
 if ($guids.Count -gt 0) {
     Write-Host "Found GUIDs for '$searchTerm':"
@@ -283,7 +287,6 @@ if ($guids.Count -gt 0) {
     Write-Log "No GUIDs found for '$searchTerm'." -logFile $logFile
 }
 
-# Step 3: Confirm deletion of install folder
 $confirmation = Read-Host "Do you want to delete the installation folder for '$searchTerm'? (yes/no)"
 if ($confirmation -eq 'yes') {
     Delete-InstallFolder -logFile $logFile
