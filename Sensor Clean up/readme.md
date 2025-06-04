@@ -1,27 +1,27 @@
 # 🧹 MDI Cleanup Script (Azure ATP Sensor Removal) - English Version
 
-This script performs a complete cleanup of the **Azure Advanced Threat Protection Sensor** from a Windows system.  
-It includes:
+This script performs a complete cleanup of the **Azure Advanced Threat Protection Sensor** from a Windows system.It includes:
+
 - Deletion of related Windows services
 - Cleanup of registry keys and Package Cache folders
 - Removal of installation directory
 
-> **Author:** MSlab  
-> **Date:** 2024-10-28  
-> **Version:** 1.0  
-> **Permissions Required:** Administrator  
+> **Author:** MSlab
+> **Date:** 2024-10-28
+> **Version:** 1.0
+> **Permissions Required:** Administrator
 
 ---
 
 ## 🧼 Full MDI Cleanup Script
 
-> **Script Name:** `Remove-MdiSensor.ps1`  
+> **Script Name:** `Remove-MdiSensor.ps1`
 > This script removes all traces of the MDI Sensor including services, registry keys, cache, and installation files.
 
 <details>
 <summary>Click to expand full script</summary>
 
-```powershell
+````powershell
 <#
 .SYNOPSIS
     This PowerShell script fully removes all traces of the "Azure Advanced Threat Protection Sensor" from a Windows system.
@@ -59,6 +59,7 @@ It includes:
 
     A log file will be created at the script's location: MdiServiceDeletionLog.txt
 #>
+...
 ````
 
 </details>
@@ -67,12 +68,11 @@ It includes:
 
 ## 📝 Notes
 
-* Always test the script on a non-production machine before using it in production.
-* If antivirus or EDR interferes with file/folder deletion, consider temporarily disabling them.
-* A backup of registry keys is possible (optional), but not required for most cleanups.
+- Always test the script on a non-production machine before using it in production.
+- If antivirus or EDR interferes with file/folder deletion, consider temporarily disabling them.
+- A backup of registry keys is possible (optional), but not required for most cleanups.
 
 ---
-
 
 # 🧹 MDI 清理脚本（Azure ATP Sensor 卸载）- 中文版本
 
@@ -82,22 +82,22 @@ It includes:
 - 清理注册表中与传感器相关的 GUID 项
 - 删除安装目录和缓存文件夹（如 ProgramData 中的 Package Cache）
 
-> **作者:** MSlab  
-> **日期:** 2024-10-28  
-> **版本:** 1.0  
-> **所需权限:** 以管理员身份运行  
+> **作者:** MSlab
+> **日期:** 2024-10-28
+> **版本:** 1.0
+> **所需权限:** 以管理员身份运行
 
 ---
 
 ## 🧼 MDI 传感器清理主脚本
 
-> **脚本文件名:** `Remove-MdiSensor.ps1`  
+> **脚本文件名:** `Remove-MdiSensor.ps1`
 > 该脚本会移除系统中 Azure ATP Sensor 的所有残留内容。
 
 <details>
 <summary>点击展开完整脚本</summary>
 
-```powershell
+````powershell
 <#
 .SYNOPSIS
     此 PowerShell 脚本可彻底删除系统中 Azure ATP Sensor 的所有相关内容。
@@ -136,6 +136,7 @@ It includes:
 
     脚本会在当前目录生成日志文件：MdiServiceDeletionLog.txt
 #>
+...
 ````
 
 </details>
@@ -147,5 +148,3 @@ It includes:
 * 建议先在测试环境中执行脚本，确认无误后再用于生产环境。
 * 某些杀毒软件或安全代理（如 EDR）可能会阻止文件删除，建议在操作时暂时关闭。
 * 注册表项备份可选，默认脚本不启用，如需备份请手动开启备份流程。
-
----
