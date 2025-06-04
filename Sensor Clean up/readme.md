@@ -73,9 +73,8 @@ It includes:
 
 ---
 
-# 🇨🇳 中文版本
 
-# 🧹 MDI 清理脚本（Azure ATP Sensor 卸载）
+# 🧹 MDI 清理脚本（Azure ATP Sensor 卸载）- 中文版本
 
 本脚本用于彻底清除 Windows 系统中安装的 **Azure Advanced Threat Protection Sensor（高级威胁防护传感器）**，包括以下操作：
 
