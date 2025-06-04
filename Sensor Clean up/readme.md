@@ -1,10 +1,10 @@
-# 🧹 MDI Cleanup Script (Azure ATP Sensor Removal)
+# 🧹 MDI Cleanup Script (Azure ATP Sensor Removal) - English Version
 
 This script performs a complete cleanup of the **Azure Advanced Threat Protection Sensor** from a Windows system.  
 It includes:
-- Backup of relevant registry entries
 - Deletion of related Windows services
-- Cleanup of cache folders and installation directory
+- Cleanup of registry keys and Package Cache folders
+- Removal of installation directory
 
 > **Author:** MSlab  
 > **Date:** 2024-10-28  
@@ -13,61 +13,9 @@ It includes:
 
 ---
 
-## 📁 Section 1: Backup Registry Entries (not necessary)
+## 🧼 Full MDI Cleanup Script
 
-The following block exports all registry keys that might contain traces of the MDI Sensor based on previously discovered GUIDs.
-
-```powershell
-# Define backup folder path
-$backupPath = "C:\Temp\MdiSensorBackup"
-
-# Ensure the backup directory exists
-if (!(Test-Path $backupPath)) {
-    New-Item -ItemType Directory -Path $backupPath | Out-Null
-}
-
-# Registry paths commonly used by Windows Installer
-$registryPaths = @(
-    "HKLM:\SOFTWARE\Classes\Installer\Products\",
-    "HKLM:\SOFTWARE\Classes\Installer\Features\",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
-    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
-    "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
-)
-
-# Loop through each discovered GUID
-foreach ($guid in $guids) {
-    foreach ($regPath in $registryPaths) {
-        $fullKey = "$regPath$guid"
-
-        if (Test-Path $fullKey) {
-            # Prepare filename for .reg file (replace backslashes/colons to safe name)
-            $safeName = ($regPath -replace "[:\\]", "_") + $guid + ".reg"
-            $backupFile = Join-Path $backupPath $safeName
-
-            # Export the registry key using reg.exe
-            $exportCommand = "reg export `"$($fullKey -replace 'HKLM:', 'HKLM')`" `"$backupFile`" /y"
-            cmd.exe /c $exportCommand
-
-            # Confirm export status
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Backed up: $fullKey -> $backupFile"
-            } else {
-                Write-Warning "⚠️ Failed to back up: $fullKey"
-            }
-        } else {
-            Write-Host "⏭️ Key not found: $fullKey"
-        }
-    }
-}
-````
-
----
-
-## 🧼 Section 2: Full MDI Cleanup Script
-
-> **Script Name:** `Remove-MdiSensor.ps1`
+> **Script Name:** `Remove-MdiSensor.ps1`  
 > This script removes all traces of the MDI Sensor including services, registry keys, cache, and installation files.
 
 <details>
@@ -111,70 +59,7 @@ foreach ($guid in $guids) {
 
     A log file will be created at the script's location: MdiServiceDeletionLog.txt
 #>
-
-#---------------------- Function Definitions ----------------------#
-
-# Logs messages with a timestamp to the log file
-function Write-Log {
-    ...
-}
-
-# Stops and deletes a Windows service by name, logging the result
-function Delete-Service {
-    ...
-}
-
-# Deletes registry keys related to the provided GUID
-function Delete-RegistryKeys {
-    ...
-}
-
-# Deletes cache folder for a specific GUID under ProgramData
-function Delete-CacheFolder {
-    ...
-}
-
-# Deletes the sensor's installation folder
-function Delete-InstallFolder {
-    ...
-}
-
-# Searches the registry for GUIDs associated with the sensor by display name
-function Find-GUIDs {
-    ...
-}
-
-#---------------------- Main Script Logic ----------------------#
-
-# Define search term and log file path
-$searchTerm = "Azure Advanced Threat Protection Sensor"
-$logFile = Join-Path $PSScriptRoot "MdiServiceDeletionLog.txt"
-
-Write-Log "Script started." -logFile $logFile
-
-# Step 1: Ask user to delete services
-$confirmation = Read-Host "Do you want to stop and delete the services 'aatpsensor' and 'aatpsensorupdater'? (yes/no)"
-if ($confirmation -eq 'yes') {
-    ...
-}
-
-# Step 2: Find all GUIDs for registry and cache deletion
-$guids = Find-GUIDs -searchTerm $searchTerm -logFile $logFile
-if ($guids.Count -gt 0) {
-    ...
-} else {
-    Write-Host "No GUIDs found for '$searchTerm'."
-    Write-Log "No GUIDs found for '$searchTerm'." -logFile $logFile
-}
-
-# Step 3: Confirm deletion of install folder
-$confirmation = Read-Host "Do you want to delete the installation folder for '$searchTerm'? (yes/no)"
-if ($confirmation -eq 'yes') {
-    ...
-}
-
-Write-Log "Script completed." -logFile $logFile
-```
+````
 
 </details>
 
@@ -182,8 +67,86 @@ Write-Log "Script completed." -logFile $logFile
 
 ## 📝 Notes
 
-* Always test the script on a non-production machine before using it in a live environment.
-* Ensure backups are made prior to deletion (see registry backup section).
-* Some antivirus or EDR tools may interfere with deletion of sensor folders—consider disabling protection temporarily.
+* Always test the script on a non-production machine before using it in production.
+* If antivirus or EDR interferes with file/folder deletion, consider temporarily disabling them.
+* A backup of registry keys is possible (optional), but not required for most cleanups.
+
+---
+
+# 🇨🇳 中文版本
+
+# 🧹 MDI 清理脚本（Azure ATP Sensor 卸载）
+
+本脚本用于彻底清除 Windows 系统中安装的 **Azure Advanced Threat Protection Sensor（高级威胁防护传感器）**，包括以下操作：
+
+- 删除相关的 Windows 服务（例如 `aatpsensor`, `aatpsensorupdater`）
+- 清理注册表中与传感器相关的 GUID 项
+- 删除安装目录和缓存文件夹（如 ProgramData 中的 Package Cache）
+
+> **作者:** MSlab  
+> **日期:** 2024-10-28  
+> **版本:** 1.0  
+> **所需权限:** 以管理员身份运行  
+
+---
+
+## 🧼 MDI 传感器清理主脚本
+
+> **脚本文件名:** `Remove-MdiSensor.ps1`  
+> 该脚本会移除系统中 Azure ATP Sensor 的所有残留内容。
+
+<details>
+<summary>点击展开完整脚本</summary>
+
+```powershell
+<#
+.SYNOPSIS
+    此 PowerShell 脚本可彻底删除系统中 Azure ATP Sensor 的所有相关内容。
+
+.DESCRIPTION
+    主要功能包括：
+    - 停止并删除服务（aatpsensor 与 aatpsensorupdater）
+    - 查找与传感器相关的注册表 GUID 并清理注册表
+    - 删除 ProgramData 中的缓存目录
+    - 删除安装路径（通常位于 "C:\Program Files"）
+    - 将所有操作记录到日志文件中
+
+.PARAMETER searchTerm
+    注册表中用于识别目标程序的名称（如 "Azure Advanced Threat Protection Sensor"）。
+
+.PARAMETER logFile
+    日志记录文件的完整路径。
+
+.NOTES
+    版本     : 1.0  
+    作者     : MSlab  
+    日期     : 2024-10-28  
+    所需权限 : 管理员权限
+
+.EXAMPLE
+    使用方法如下：
+    1. 以管理员身份打开 PowerShell
+    2. 切换至脚本所在目录
+    3. 执行以下命令：
+        .\Remove-MdiSensor.ps1
+
+    脚本会提示确认以下操作：
+    - 是否停止并删除相关服务
+    - 是否删除注册表项和缓存文件夹
+    - 是否删除安装目录
+
+    脚本会在当前目录生成日志文件：MdiServiceDeletionLog.txt
+#>
+````
+
+</details>
+
+---
+
+## 📝 注意事项
+
+* 建议先在测试环境中执行脚本，确认无误后再用于生产环境。
+* 某些杀毒软件或安全代理（如 EDR）可能会阻止文件删除，建议在操作时暂时关闭。
+* 注册表项备份可选，默认脚本不启用，如需备份请手动开启备份流程。
 
 ---
