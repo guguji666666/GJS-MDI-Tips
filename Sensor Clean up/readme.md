@@ -2,7 +2,7 @@
 
 This script fully removes all traces of **Azure Advanced Threat Protection Sensor (MDI Sensor)** from a Windows system, including:
 
-* Backing up relevant registry keys
+* Backing up relevant registry keys (not necessary)
 * Stopping and deleting services
 * Cleaning up GUID-based folders
 * Deleting the install directory
@@ -10,7 +10,7 @@ This script fully removes all traces of **Azure Advanced Threat Protection Senso
 
 ---
 
-## 📦 Backup Registry Keys
+## 📦 Backup Registry Keys (not necessary)
 
 ```powershell
 $backupPath = "C:\Temp\MdiSensorBackup"
@@ -311,7 +311,7 @@ Write-Log "Script completed." -logFile $logFile
 
 该脚本将从 Windows 系统中**彻底移除 Azure 高级威胁防护传感器（MDI Sensor）**，包括：
 
-* 备份相关注册表项
+* 备份相关注册表项 (非必要)
 * 停止并删除相关服务
 * 清除与 GUID 相关的缓存文件夹
 * 删除安装目录
@@ -319,7 +319,7 @@ Write-Log "Script completed." -logFile $logFile
 
 ---
 
-## 📦 备份注册表项
+## 📦 备份注册表项 (非必要)
 
 ```powershell
 $backupPath = "C:\Temp\MdiSensorBackup"
