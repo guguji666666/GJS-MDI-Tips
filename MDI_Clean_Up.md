@@ -1,4 +1,4 @@
-# MDI cleanup scripr
+# MDI cleanup script
 
 ## Backup registries
 ```powershell
