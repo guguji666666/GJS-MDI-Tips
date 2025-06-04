@@ -1,27 +1,47 @@
-# 🧹 MDI Cleanup Script (Azure ATP Sensor Removal) - English Version
+# MDI cleanup script
 
-This script performs a complete cleanup of the **Azure Advanced Threat Protection Sensor** from a Windows system.It includes:
+## Backup registries
+```powershell
+$backupPath = "C:\Temp\MdiSensorBackup"
+if (!(Test-Path $backupPath)) {
+    New-Item -ItemType Directory -Path $backupPath | Out-Null
+}
 
-- Deletion of related Windows services
-- Cleanup of registry keys and Package Cache folders
-- Removal of installation directory
+$registryPaths = @(
+    "HKLM:\SOFTWARE\Classes\Installer\Products\",
+    "HKLM:\SOFTWARE\Classes\Installer\Features\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+)
 
-> **Author:** MSlab
-> **Date:** 2024-10-28
-> **Version:** 1.0
-> **Permissions Required:** Administrator
+foreach ($guid in $guids) {
+    foreach ($regPath in $registryPaths) {
+        $fullKey = "$regPath$guid"
 
----
+        if (Test-Path $fullKey) {
+            $safeName = ($regPath -replace "[:\\]", "_") + $guid + ".reg"
+            $backupFile = Join-Path $backupPath $safeName
 
-## 🧼 Full MDI Cleanup Script
+            $exportCommand = "reg export `"$($fullKey -replace 'HKLM:', 'HKLM')`" `"$backupFile`" /y"
+            cmd.exe /c $exportCommand
 
-> **Script Name:** `Remove-MdiSensor.ps1`
-> This script removes all traces of the MDI Sensor including services, registry keys, cache, and installation files.
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Backed up: $fullKey -> $backupFile"
+            } else {
+                Write-Warning "⚠️ Failed to back up: $fullKey"
+            }
+        } else {
+            Write-Host "⏭️ Key not found: $fullKey"
+        }
+    }
+}
+```
 
-<details>
-<summary>Click to expand full script</summary>
 
-````powershell
+## MDI cleanup
+```powershell
 <#
 .SYNOPSIS
     This PowerShell script fully removes all traces of the "Azure Advanced Threat Protection Sensor" from a Windows system.
@@ -59,92 +79,222 @@ This script performs a complete cleanup of the **Azure Advanced Threat Protectio
 
     A log file will be created at the script's location: MdiServiceDeletionLog.txt
 #>
-...
-````
 
-</details>
+#---------------------- Function Definitions ----------------------#
 
----
+# Logs messages with a timestamp to the log file
+function Write-Log {
+    param (
+        [string]$message,
+        [string]$logFile
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp - $message"
+    Add-Content -Path $logFile -Value $logEntry
+}
 
-## 📝 Notes
+# Stops and deletes a Windows service by name, logging the result
+function Delete-Service {
+    param (
+        [string]$serviceName,
+        [string]$logFile
+    )
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service) {
+        try {
+            sc.exe stop $serviceName
+            Write-Host "'$serviceName' service is being stopped..."
+            Write-Log "'$serviceName' service is being stopped." -logFile $logFile
 
-- Always test the script on a non-production machine before using it in production.
-- If antivirus or EDR interferes with file/folder deletion, consider temporarily disabling them.
-- A backup of registry keys is possible (optional), but not required for most cleanups.
+            $waitTime = 0
+            while ((Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status -ne 'Stopped' -and $waitTime -lt 60) {
+                Start-Sleep -Seconds 5
+                $waitTime += 5
+                Write-Host "Waiting for '$serviceName' to stop... $waitTime seconds elapsed."
+                Write-Log "Waiting for '$serviceName' to stop... $waitTime seconds elapsed." -logFile $logFile
+            }
 
----
+            if ((Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status -eq 'Stopped') {
+                Write-Host "'$serviceName' service has stopped."
+                Write-Log "'$serviceName' service has stopped." -logFile $logFile
+            } else {
+                Write-Error "Failed to stop '$serviceName' within the timeout period."
+                Write-Log "Failed to stop '$serviceName' within the timeout period." -logFile $logFile
+                return
+            }
 
-# 🧹 MDI 清理脚本（Azure ATP Sensor 卸载）- 中文版本
+            sc.exe delete $serviceName
+            Write-Host "'$serviceName' service is being deleted..."
+            Write-Log "'$serviceName' service is being deleted." -logFile $logFile
 
-本脚本用于彻底清除 Windows 系统中安装的 **Azure Advanced Threat Protection Sensor（高级威胁防护传感器）**，包括以下操作：
+            Start-Sleep -Seconds 5
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service -eq $null) {
+                Write-Host "'$serviceName' service has been successfully deleted."
+                Write-Log "'$serviceName' service has been successfully deleted." -logFile $logFile
+            } else {
+                Write-Error "Service '$serviceName' could not be deleted."
+                Write-Log "Service '$serviceName' could not be deleted." -logFile $logFile
+            }
+        } catch {
+            Write-Error "Failed to stop or delete service '$serviceName': $_"
+            Write-Log "Failed to stop or delete service '$serviceName': $_" -logFile $logFile
+        }
+    } else {
+        Write-Warning "Service '$serviceName' does not exist."
+        Write-Log "Service '$serviceName' does not exist." -logFile $logFile
+    }
+}
 
-- 删除相关的 Windows 服务（例如 `aatpsensor`, `aatpsensorupdater`）
-- 清理注册表中与传感器相关的 GUID 项
-- 删除安装目录和缓存文件夹（如 ProgramData 中的 Package Cache）
+# Deletes registry keys related to the provided GUID
+function Delete-RegistryKeys {
+    param (
+        [string]$guid,
+        [string]$logFile
+    )
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Classes\Installer\Products\",
+        "HKLM:\SOFTWARE\Classes\Installer\Features\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+    )
+    foreach ($path in $registryPaths) {
+        $regKey = "$path$guid"
+        if (Test-Path $regKey) {
+            Write-Host "Deleting registry key: $regKey"
+            Remove-Item -Path $regKey -Recurse -Force
+            Write-Log "Deleted registry key: $regKey" -logFile $logFile
+        } else {
+            Write-Warning "Registry key not found: $regKey"
+            Write-Log "Registry key not found: $regKey" -logFile $logFile
+        }
+    }
+}
 
-> **作者:** MSlab
-> **日期:** 2024-10-28
-> **版本:** 1.0
-> **所需权限:** 以管理员身份运行
+# Deletes cache folder for a specific GUID under ProgramData
+function Delete-CacheFolder {
+    param (
+        [string]$guid,
+        [string]$logFile
+    )
+    $packageCacheFolder = "C:\ProgramData\Package Cache\$guid"
+    if (Test-Path $packageCacheFolder) {
+        Remove-Item -Path $packageCacheFolder -Recurse -Force
+        Write-Host "Deleted folder: $packageCacheFolder"
+        Write-Log "Deleted folder: $packageCacheFolder" -logFile $logFile
+    } else {
+        Write-Warning "Cache folder not found: $packageCacheFolder"
+        Write-Log "Cache folder not found: $packageCacheFolder" -logFile $logFile
+    }
+}
 
----
+# Deletes the sensor's installation folder
+function Delete-InstallFolder {
+    param (
+        [string]$logFile
+    )
+    $installFolder = "C:\Program Files\Azure Advanced Threat Protection Sensor"
+    if (Test-Path $installFolder) {
+        Remove-Item -Path $installFolder -Recurse -Force
+        Write-Host "Deleted installation folder: $installFolder"
+        Write-Log "Deleted installation folder: $installFolder" -logFile $logFile
+    } else {
+        Write-Warning "Installation folder '$installFolder' does not exist."
+        Write-Log "Installation folder '$installFolder' does not exist." -logFile $logFile
+    }
+}
 
-## 🧼 MDI 传感器清理主脚本
+# Searches the registry for GUIDs associated with the sensor by display name
+function Find-GUIDs {
+    param (
+        [string]$searchTerm,
+        [string]$logFile
+    )
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Classes\Installer\Products\",
+        "HKLM:\SOFTWARE\Classes\Installer\Features\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+    )
+    $guids = @()
+    foreach ($path in $registryPaths) {
+        $subKeys = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
+        foreach ($key in $subKeys) {
+            $keyPath = $path + $key.PSChildName
+            $properties = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue
+            if ($properties.DisplayName -eq $searchTerm -or $properties.ProductName -eq $searchTerm) {
+                $guids += $key.PSChildName
+                Write-Log "Found GUID $($key.PSChildName) for '$searchTerm'" -logFile $logFile
+            }
+        }
+    }
+    return $guids | Select-Object -Unique
+}
 
-> **脚本文件名:** `Remove-MdiSensor.ps1`
-> 该脚本会移除系统中 Azure ATP Sensor 的所有残留内容。
+#---------------------- Main Script Logic ----------------------#
 
-<details>
-<summary>点击展开完整脚本</summary>
+# Define search term and log file path
+$searchTerm = "Azure Advanced Threat Protection Sensor"
+$logFile = Join-Path $PSScriptRoot "MdiServiceDeletionLog.txt"
 
-````powershell
-<#
-.SYNOPSIS
-    此 PowerShell 脚本可彻底删除系统中 Azure ATP Sensor 的所有相关内容。
+Write-Log "Script started." -logFile $logFile
 
-.DESCRIPTION
-    主要功能包括：
-    - 停止并删除服务（aatpsensor 与 aatpsensorupdater）
-    - 查找与传感器相关的注册表 GUID 并清理注册表
-    - 删除 ProgramData 中的缓存目录
-    - 删除安装路径（通常位于 "C:\Program Files"）
-    - 将所有操作记录到日志文件中
+# Step 1: Ask user to delete services
+$confirmation = Read-Host "Do you want to stop and delete the services 'aatpsensor' and 'aatpsensorupdater'? (yes/no)"
+if ($confirmation -eq 'yes') {
+    Delete-Service -serviceName "aatpsensor" -logFile $logFile
+    Delete-Service -serviceName "aatpsensorupdater" -logFile $logFile
+} elseif ($confirmation -eq 'no') {
+    Write-Host "Deletion process aborted by the user."
+    Write-Log "Deletion process aborted by the user." -logFile $logFile
+    exit
+} else {
+    Write-Host "Invalid input. Aborting the deletion process."
+    Write-Log "Invalid input. Aborting the deletion process." -logFile $logFile
+    exit
+}
 
-.PARAMETER searchTerm
-    注册表中用于识别目标程序的名称（如 "Azure Advanced Threat Protection Sensor"）。
+# Step 2: Find all GUIDs for registry and cache deletion
+$guids = Find-GUIDs -searchTerm $searchTerm -logFile $logFile
+if ($guids.Count -gt 0) {
+    Write-Host "Found GUIDs for '$searchTerm':"
+    $guids | ForEach-Object { Write-Host $_ }
 
-.PARAMETER logFile
-    日志记录文件的完整路径。
+    $confirmation = Read-Host "Do you want to delete registry keys and cache folders for these GUIDs? (yes/no)"
+    if ($confirmation -eq 'yes') {
+        foreach ($guid in $guids) {
+            Delete-RegistryKeys -guid $guid -logFile $logFile
+            Delete-CacheFolder -guid $guid -logFile $logFile
+        }
+    } elseif ($confirmation -eq 'no') {
+        Write-Host "Registry and cache deletion skipped by the user."
+        Write-Log "Registry and cache deletion skipped by the user." -logFile $logFile
+    } else {
+        Write-Host "Invalid input. Aborting."
+        Write-Log "Invalid input. Aborting." -logFile $logFile
+        exit
+    }
+} else {
+    Write-Host "No GUIDs found for '$searchTerm'."
+    Write-Log "No GUIDs found for '$searchTerm'." -logFile $logFile
+}
 
-.NOTES
-    版本     : 1.0  
-    作者     : MSlab  
-    日期     : 2024-10-28  
-    所需权限 : 管理员权限
+# Step 3: Confirm deletion of install folder
+$confirmation = Read-Host "Do you want to delete the installation folder for '$searchTerm'? (yes/no)"
+if ($confirmation -eq 'yes') {
+    Delete-InstallFolder -logFile $logFile
+} elseif ($confirmation -eq 'no') {
+    Write-Host "Installation folder deletion skipped by user."
+    Write-Log "Installation folder deletion skipped by user." -logFile $logFile
+} else {
+    Write-Host "Invalid input. Aborting."
+    Write-Log "Invalid input. Aborting." -logFile $logFile
+    exit
+}
 
-.EXAMPLE
-    使用方法如下：
-    1. 以管理员身份打开 PowerShell
-    2. 切换至脚本所在目录
-    3. 执行以下命令：
-        .\Remove-MdiSensor.ps1
-
-    脚本会提示确认以下操作：
-    - 是否停止并删除相关服务
-    - 是否删除注册表项和缓存文件夹
-    - 是否删除安装目录
-
-    脚本会在当前目录生成日志文件：MdiServiceDeletionLog.txt
-#>
-...
-````
-
-</details>
-
----
-
-## 📝 注意事项
-
-* 建议先在测试环境中执行脚本，确认无误后再用于生产环境。
-* 某些杀毒软件或安全代理（如 EDR）可能会阻止文件删除，建议在操作时暂时关闭。
-* 注册表项备份可选，默认脚本不启用，如需备份请手动开启备份流程。
+Write-Log "Script completed." -logFile $logFile
+```
