@@ -13,7 +13,7 @@ It includes:
 
 ---
 
-## 📁 Section 1: Backup Registry Entries
+## 📁 Section 1: Backup Registry Entries (not necessary)
 
 The following block exports all registry keys that might contain traces of the MDI Sensor based on previously discovered GUIDs.
 
