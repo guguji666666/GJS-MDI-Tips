@@ -1,4 +1,4 @@
-# 🧼 MDI Cleanup Script
+# 🧼 MDI Cleanup Script (English version)
 
 This script fully removes all traces of **Azure Advanced Threat Protection Sensor (MDI Sensor)** from a Windows system, including:
 
@@ -301,3 +301,268 @@ if ($confirmation -eq 'yes') {
 
 Write-Log "Script completed." -logFile $logFile
 ```
+
+
+以下是完整中文版的 **Azure Advanced Threat Protection Sensor（MDI Sensor）清理脚本**，包括注册表备份、服务删除、GUID 清理、安装目录删除以及操作日志记录。
+
+---
+
+# 🧼 MDI 清理脚本（中文版）
+
+该脚本将从 Windows 系统中**彻底移除 Azure 高级威胁防护传感器（MDI Sensor）**，包括：
+
+* 备份相关注册表项
+* 停止并删除相关服务
+* 清除与 GUID 相关的缓存文件夹
+* 删除安装目录
+* 所有操作写入 `.txt` 日志文件中
+
+---
+
+## 📦 备份注册表项
+
+```powershell
+$backupPath = "C:\Temp\MdiSensorBackup"
+if (!(Test-Path $backupPath)) {
+    New-Item -ItemType Directory -Path $backupPath | Out-Null
+}
+
+$registryPaths = @(
+    "HKLM:\SOFTWARE\Classes\Installer\Products\",
+    "HKLM:\SOFTWARE\Classes\Installer\Features\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+    "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+)
+
+foreach ($guid in $guids) {
+    foreach ($regPath in $registryPaths) {
+        $fullKey = "$regPath$guid"
+
+        if (Test-Path $fullKey) {
+            $safeName = ($regPath -replace "[:\\]", "_") + $guid + ".reg"
+            $backupFile = Join-Path $backupPath $safeName
+
+            $exportCommand = "reg export `"$($fullKey -replace 'HKLM:', 'HKLM')`" `"$backupFile`" /y"
+            cmd.exe /c $exportCommand
+
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ 已备份：$fullKey -> $backupFile"
+            } else {
+                Write-Warning "⚠️ 无法备份：$fullKey"
+            }
+        } else {
+            Write-Host "⏭️ 未找到项：$fullKey"
+        }
+    }
+}
+```
+
+---
+
+## 🧽 主清理脚本
+
+```powershell
+<#
+.SYNOPSIS
+    本 PowerShell 脚本可从系统中彻底移除 “Azure 高级威胁防护传感器”（MDI Sensor）。
+
+.DESCRIPTION
+    功能包括：
+    - 停止并删除相关服务（aatpsensor, aatpsensorupdater）
+    - 查找并删除相关注册表项和缓存文件夹
+    - 删除安装目录
+    - 所有操作记录到日志文件中
+
+.PARAMETER searchTerm
+    在注册表中用于匹配的显示名称（如 "Azure Advanced Threat Protection Sensor"）。
+
+.PARAMETER logFile
+    操作日志的输出路径。
+
+.NOTES
+    版本     : 1.0  
+    作者     : MSlab  
+    日期     : 2024-10-28  
+    权限需求 : 管理员权限
+
+.EXAMPLE
+    以管理员权限打开 PowerShell，进入脚本目录，运行：
+        .\Remove-MdiSensor.ps1
+
+    你将会被提示是否确认执行以下操作：
+    - 停止并删除相关服务
+    - 删除注册表项和缓存目录
+    - 删除安装目录
+
+    日志将保存至脚本所在目录：MdiServiceDeletionLog.txt
+#>
+
+function Write-Log {
+    param ([string]$message, [string]$logFile)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $logFile -Value "$timestamp - $message"
+}
+
+function Delete-Service {
+    param ([string]$serviceName, [string]$logFile)
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($service) {
+        try {
+            sc.exe stop $serviceName
+            Write-Host "正在停止服务 '$serviceName'..."
+            Write-Log "正在停止服务 '$serviceName'" $logFile
+
+            $waitTime = 0
+            while ((Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status -ne 'Stopped' -and $waitTime -lt 60) {
+                Start-Sleep -Seconds 5
+                $waitTime += 5
+                Write-Log "等待服务停止：$waitTime 秒" $logFile
+            }
+
+            if ((Get-Service -Name $serviceName -ErrorAction SilentlyContinue).Status -eq 'Stopped') {
+                Write-Log "服务已停止：$serviceName" $logFile
+            } else {
+                Write-Error "服务未能在超时时间内停止：$serviceName"
+                Write-Log "服务未能停止：$serviceName" $logFile
+                return
+            }
+
+            sc.exe delete $serviceName
+            Start-Sleep -Seconds 5
+            if (-not (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) {
+                Write-Log "服务已成功删除：$serviceName" $logFile
+            } else {
+                Write-Log "服务删除失败：$serviceName" $logFile
+            }
+        } catch {
+            Write-Error "删除服务失败：$serviceName - $_"
+            Write-Log "删除服务失败：$serviceName - $_" $logFile
+        }
+    } else {
+        Write-Log "服务不存在：$serviceName" $logFile
+    }
+}
+
+function Delete-RegistryKeys {
+    param ([string]$guid, [string]$logFile)
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Classes\Installer\Products\",
+        "HKLM:\SOFTWARE\Classes\Installer\Features\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+    )
+    foreach ($path in $registryPaths) {
+        $regKey = "$path$guid"
+        if (Test-Path $regKey) {
+            Remove-Item -Path $regKey -Recurse -Force
+            Write-Log "已删除注册表项：$regKey" $logFile
+        } else {
+            Write-Log "未找到注册表项：$regKey" $logFile
+        }
+    }
+}
+
+function Delete-CacheFolder {
+    param ([string]$guid, [string]$logFile)
+    $folder = "C:\ProgramData\Package Cache\$guid"
+    if (Test-Path $folder) {
+        Remove-Item -Path $folder -Recurse -Force
+        Write-Log "已删除缓存文件夹：$folder" $logFile
+    } else {
+        Write-Log "未找到缓存文件夹：$folder" $logFile
+    }
+}
+
+function Delete-InstallFolder {
+    param ([string]$logFile)
+    $folder = "C:\Program Files\Azure Advanced Threat Protection Sensor"
+    if (Test-Path $folder) {
+        Remove-Item -Path $folder -Recurse -Force
+        Write-Log "已删除安装目录：$folder" $logFile
+    } else {
+        Write-Log "未找到安装目录：$folder" $logFile
+    }
+}
+
+function Find-GUIDs {
+    param ([string]$searchTerm, [string]$logFile)
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Classes\Installer\Products\",
+        "HKLM:\SOFTWARE\Classes\Installer\Features\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
+        "HKLM:\SOFTWARE\Classes\Installer\Dependencies\"
+    )
+    $guids = @()
+    foreach ($path in $registryPaths) {
+        $subKeys = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
+        foreach ($key in $subKeys) {
+            $keyPath = $path + $key.PSChildName
+            $props = Get-ItemProperty -Path $keyPath -ErrorAction SilentlyContinue
+            if ($props.DisplayName -eq $searchTerm -or $props.ProductName -eq $searchTerm) {
+                $guids += $key.PSChildName
+                Write-Log "发现 GUID：$($key.PSChildName)" $logFile
+            }
+        }
+    }
+    return $guids | Select-Object -Unique
+}
+
+# ---------------------- 主流程 ---------------------- #
+
+$searchTerm = "Azure Advanced Threat Protection Sensor"
+$logFile = Join-Path $PSScriptRoot "MdiServiceDeletionLog.txt"
+
+Write-Log "脚本开始运行。" $logFile
+
+$confirm = Read-Host "是否停止并删除服务 'aatpsensor' 和 'aatpsensorupdater'? (yes/no)"
+if ($confirm -eq 'yes') {
+    Delete-Service "aatpsensor" $logFile
+    Delete-Service "aatpsensorupdater" $logFile
+} elseif ($confirm -eq 'no') {
+    Write-Log "用户取消了服务删除操作。" $logFile
+    exit
+} else {
+    Write-Log "无效输入，脚本中止。" $logFile
+    exit
+}
+
+$guids = Find-GUIDs $searchTerm $logFile
+if ($guids.Count -gt 0) {
+    Write-Host "找到以下 GUID："
+    $guids | ForEach-Object { Write-Host $_ }
+
+    $confirm = Read-Host "是否删除这些 GUID 的注册表项和缓存文件夹? (yes/no)"
+    if ($confirm -eq 'yes') {
+        foreach ($guid in $guids) {
+            Delete-RegistryKeys $guid $logFile
+            Delete-CacheFolder $guid $logFile
+        }
+    } elseif ($confirm -eq 'no') {
+        Write-Log "用户跳过了 GUID 清理。" $logFile
+    } else {
+        Write-Log "无效输入，脚本中止。" $logFile
+        exit
+    }
+} else {
+    Write-Log "未找到与 '$searchTerm' 相关的 GUID。" $logFile
+}
+
+$confirm = Read-Host "是否删除安装目录？(yes/no)"
+if ($confirm -eq 'yes') {
+    Delete-InstallFolder $logFile
+} elseif ($confirm -eq 'no') {
+    Write-Log "用户跳过了安装目录删除。" $logFile
+} else {
+    Write-Log "无效输入，脚本中止。" $logFile
+    exit
+}
+
+Write-Log "脚本执行完毕。" $logFile
+```
+
